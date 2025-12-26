@@ -2,13 +2,14 @@ import 'dart:convert';
 import 'package:get/get.dart';
 import 'package:hommie/data/models/apartment/owner_apartment_model.dart';
 import 'package:hommie/data/services/token_storage_service.dart';
+import 'package:hommie/helpers/base_url.dart';
 
 
 import 'package:http/http.dart' as http;
 
 class ApartmentApi {
   final List<OwnerApartmentModel> _db = [];
-  final baseUrl = 'http://192.168.1.3/api/owner';
+  final baseUrl = '${BaseUrl.pubBaseUrl}/api/owner';
   final apartmentEndpoint = '/apartments';
   final TokenStorageService _storage = Get.find<TokenStorageService>();
 

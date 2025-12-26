@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 import 'package:hommie/data/models/bookings/bookings_request_model.dart';
 import 'package:hommie/data/services/token_storage_service.dart';
+import 'package:hommie/helpers/base_url.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
@@ -8,7 +9,7 @@ import 'dart:convert';
 class BookingService extends GetConnect {
   final TokenStorageService _tokenStorage = Get.find<TokenStorageService>();
   @override
-  final String baseUrl = 'http://192.168.1.3:8000/api'; 
+  final String baseUrl = '${BaseUrl.pubBaseUrl}/api'; 
 
   
   Future<List<BookingRequestModel>> getPendingRequests() async {

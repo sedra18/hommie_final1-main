@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 import 'package:hommie/data/models/user/user_login_model.dart';
+import 'package:hommie/helpers/base_url.dart';
 
 class UserResponseModel {
   final String? token;
@@ -20,7 +21,7 @@ class UserResponseModel {
 class AuthService extends GetConnect {
   @override
   void onInit() {
-    httpClient.baseUrl = 'http://192.168.1.3:8000';
+    httpClient.baseUrl = '${BaseUrl.pubBaseUrl}';
     httpClient.defaultContentType = 'application/json';
   }
 

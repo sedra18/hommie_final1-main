@@ -6,16 +6,11 @@ import 'package:hommie/data/services/signup_step3_service.dart';
 import 'package:hommie/modules/auth/views/signup_step4.dart';
 
 
-// ═══════════════════════════════════════════════════════════
-// SIGNUP STEP 3 CONTROLLER - COMPLETE
-// Handles first name, last name, date of birth
-// Includes ALL methods needed by SignupStep3Screen
-// ═══════════════════════════════════════════════════════════
 
 class SignupStep3Controller extends GetxController {
   final firstNameController = TextEditingController();
   final lastNameController = TextEditingController();
-  final dobController = TextEditingController();  // ✅ Add this for the screen
+  final dobController = TextEditingController();  
   
   final GlobalKey<FormState> formKey = GlobalKey<FormState>();
   final box = GetStorage();
@@ -35,27 +30,22 @@ class SignupStep3Controller extends GetxController {
   void onInit() {
     super.onInit();
     
-    print('');
-    print('═══════════════════════════════════════════════════════════');
-    print('📝 SIGNUP STEP 3 CONTROLLER - INITIALIZING');
-    print('──────────────────────────────────────────────────────────');
+    print(' SIGNUP STEP 3 CONTROLLER - INITIALIZING');
+ 
     
     pendingUserId = Get.arguments['pendingUserId'];
     phoneNumber = Get.arguments['phoneNumber'] as String?;
     email = Get.arguments['email'] as String?;
     role = Get.arguments['role'] as String?;
     
-    print('✅ Pending User ID: $pendingUserId');
-    if (email != null) print('✅ Email: $email');
-    if (phoneNumber != null) print('✅ Phone: $phoneNumber');
-    if (role != null) print('✅ Role: $role');
-    print('═══════════════════════════════════════════════════════════');
+    print(' Pending User ID: $pendingUserId');
+    if (email != null) print(' Email: $email');
+    if (phoneNumber != null) print(' Phone: $phoneNumber');
+    if (role != null) print(' Role: $role');
+  
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // VALIDATION METHODS (used by the screen)
-  // ═══════════════════════════════════════════════════════════
-
+ 
   String? validateName(String? value) {
     if (value == null || value.isEmpty) {
       return "This field cannot be empty";
@@ -76,9 +66,6 @@ class SignupStep3Controller extends GetxController {
     return null;
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // DATE PICKER
-  // ═══════════════════════════════════════════════════════════
 
   Future<void> selectDateOfBirth(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
@@ -92,8 +79,8 @@ class SignupStep3Controller extends GetxController {
     
     if (picked != null) {
       selectedDate.value = picked;
-      dobController.text = _formatDate(picked);  // ✅ Update the text field
-      print('✅ Date of birth selected: ${dobController.text}');
+      dobController.text = _formatDate(picked);  
+      print(' Date of birth selected: ${dobController.text}');
     }
   }
 
@@ -101,9 +88,7 @@ class SignupStep3Controller extends GetxController {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // NAVIGATION METHODS
-  // ═══════════════════════════════════════════════════════════
+
 
   Future<void> goToStep3B() async {
     await completeStep3();
@@ -112,10 +97,6 @@ class SignupStep3Controller extends GetxController {
   Future<void> goToNextStep() async {
     await completeStep3();
   }
-
-  // ═══════════════════════════════════════════════════════════
-  // SUBMIT STEP 3 DATA
-  // ═══════════════════════════════════════════════════════════
 
   Future<void> completeStep3() async {
     if (!formKey.currentState!.validate()) {
@@ -135,7 +116,7 @@ class SignupStep3Controller extends GetxController {
 
     print('');
     print('═══════════════════════════════════════════════════════════');
-    print('📝 COMPLETING STEP 3 - Name & Date of Birth');
+    print(' COMPLETING STEP 3 - Name & Date of Birth');
     print('──────────────────────────────────────────────────────────');
     print('   Pending User ID: $pendingUserId');
     print('   First Name: ${firstNameController.text}');
@@ -146,12 +127,9 @@ class SignupStep3Controller extends GetxController {
     isLoading.value = true;
 
     try {
-      // ═══════════════════════════════════════════════════════════
-      // Call registerPage3 API
-      // ═══════════════════════════════════════════════════════════
       
       print('');
-      print('📤 Calling registerPage3 API...');
+      print(' Calling registerPage3 API...');
       
       final step3Model = SignupStep3Model(
         pendingUserId: pendingUserId,
@@ -164,11 +142,11 @@ class SignupStep3Controller extends GetxController {
 
       isLoading.value = false;
 
-      print('📥 Response from registerPage3: $response');
+      print(' Response from registerPage3: $response');
 
       if (response['success'] != true) {
         final error = response['error'] ?? 'Failed at step 3';
-        print('❌ Error: $error');
+        print(' Error: $error');
         Get.snackbar(
           'Error',
           error.toString(),
@@ -179,15 +157,13 @@ class SignupStep3Controller extends GetxController {
         return;
       }
 
-      print('✅ RegisterPage3 SUCCESS');
+      print(' RegisterPage3 SUCCESS');
       print('──────────────────────────────────────────────────────────');
       
-      // ═══════════════════════════════════════════════════════════
-      // Navigate to Step 4 (Upload Images)
-      // ═══════════════════════════════════════════════════════════
+  
       
       print('');
-      print('➡️  Navigating to Step 4 (Upload Images)...');
+      print('  Navigating to Step 4 (Upload Images)...');
       print('═══════════════════════════════════════════════════════════');
       
       await Future.delayed(const Duration(milliseconds: 300));
@@ -206,7 +182,7 @@ class SignupStep3Controller extends GetxController {
       
     } catch (e) {
       isLoading.value = false;
-      print('💥 Exception during step 3: $e');
+      print(' Exception during step 3: $e');
       Get.snackbar(
         'Error',
         'Connection error. Please try again.',

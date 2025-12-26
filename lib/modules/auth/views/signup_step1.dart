@@ -8,7 +8,7 @@ class SignupStep1Screen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final SignupStep1Controller controller = Get.put(SignupStep1Controller());  // ✅ بيصنع controller جديد
+    final SignupStep1Controller controller = Get.put(SignupStep1Controller());  
     
     return Scaffold(
       resizeToAvoidBottomInset: true,

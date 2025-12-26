@@ -1,9 +1,10 @@
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:hommie/helpers/base_url.dart';
 
 class LogoutService extends GetConnect {
   
-  final String _baseUrl = 'http://192.168.1.3:8000'; 
+  final String _baseUrl = '${BaseUrl.pubBaseUrl}'; 
   final box = GetStorage();
   
   @override
