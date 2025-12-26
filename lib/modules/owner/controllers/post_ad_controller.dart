@@ -4,25 +4,39 @@ import 'package:hommie/app/utils/app_colors.dart';
 import 'package:hommie/data/models/apartment/owner_apartment_model.dart';
 import 'package:hommie/data/models/user/user_permission_controller.dart';
 import 'package:hommie/data/repositories/apartment_repository.dart';
+import 'package:hommie/modules/owner/views/apartment_form_view.dart';
 import 'package:image_picker/image_picker.dart';
 
 // ═══════════════════════════════════════════════════════════
-// UPDATED POST AD CONTROLLER
-// With Approval System and Image Handling
+// POST AD CONTROLLER - WITH LOAD AFTER PUBLISH
+// ✅ Calls repo.load() after successful publish
 // ═══════════════════════════════════════════════════════════
 
 class PostAdController extends GetxController {
   final ApartmentRepository repo;
   PostAdController(this.repo);
 
-  // ADD THIS: Get permissions controller
   final permissions = Get.find<UserPermissionsController>();
 
   List<OwnerApartmentModel> get myApartments => repo.apartments;
 
   OwnerApartmentModel? draft;
 
-  Future<void> load() async => repo.load();
+  // ✅ Load apartments on init
+  @override
+  void onInit() {
+    super.onInit();
+    load();
+  }
+
+  Future<void> load() async {
+    print('');
+    print('═══════════════════════════════════════════════════════════');
+    print('🔄 POST AD CONTROLLER - LOADING APARTMENTS');
+    await repo.load();
+    print('   Apartments loaded: ${myApartments.length}');
+    print('═══════════════════════════════════════════════════════════');
+  }
 
   void startNewDraft() {
     print('');
@@ -44,7 +58,7 @@ class PostAdController extends GetxController {
       mainImage: null,
     );
     
-    print('✅ New draft created');
+    print('✅ New draft created with ID: ${draft!.id}');
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -63,10 +77,11 @@ class PostAdController extends GetxController {
     if (draft == null) startNewDraft();
     
     print('');
-    print('📋 Saving basic info:');
+    print('📋 Saving basic info to draft:');
     print('   Title: $title');
     print('   Governorate: $governorate');
     print('   City: $city');
+    print('   Address: $address');
     print('   Price: \$$pricePerDay/day');
     print('   Rooms: $roomsCount');
     print('   Size: ${apartmentSize}m²');
@@ -85,28 +100,7 @@ class PostAdController extends GetxController {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // SAVE IMAGES FROM URLs
-  // ═══════════════════════════════════════════════════════════
-  Future<void> saveDraftImages({
-    required List<String> images,
-    required String mainImage,
-  }) async {
-    if (draft == null) return;
-    
-    print('');
-    print('🖼️  Saving image URLs:');
-    print('   Images count: ${images.length}');
-    print('   Main image: $mainImage');
-    
-    draft!
-      ..images = images
-      ..mainImage = mainImage;
-      
-    print('✅ Images saved to draft');
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // SAVE IMAGES FROM FILES (UPDATED IMPLEMENTATION)
+  // SAVE IMAGES FROM FILES
   // ═══════════════════════════════════════════════════════════
   Future<void> saveDraftImagesFromFiles({
     required List<XFile> imageFiles,
@@ -122,7 +116,7 @@ class PostAdController extends GetxController {
     print('📸 SAVING IMAGES FROM FILES');
     print('═══════════════════════════════════════════════════════════');
     print('   Total images: ${imageFiles.length}');
-    print('   Main image: ${mainImageFile != null ? "Yes" : "No"}');
+    print('   Has main image: ${mainImageFile != null}');
 
     // Convert XFile paths to image URLs/paths for storage
     List<String> imagePaths = imageFiles.map((file) => file.path).toList();
@@ -133,17 +127,23 @@ class PostAdController extends GetxController {
       ..mainImage = mainImagePath ?? (imagePaths.isNotEmpty ? imagePaths.first : null);
 
     print('✅ Images saved:');
-    print('   Images: ${imagePaths.length} files');
-    print('   Main image: ${draft!.mainImage}');
+    print('   Image paths: $imagePaths');
+    print('   Main image path: ${draft!.mainImage}');
     print('═══════════════════════════════════════════════════════════');
   }
 
   // ═══════════════════════════════════════════════════════════
-  // PUBLISH DRAFT (WITH PERMISSION CHECK)
+  // PUBLISH DRAFT (WITH PERMISSION CHECK + RELOAD)
   // ═══════════════════════════════════════════════════════════
   Future<void> publishDraft() async {
     if (draft == null) {
       print('⚠️  No draft to publish');
+      Get.snackbar(
+        'خطأ',
+        'لا يوجد مسودة للنشر',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
       return;
     }
 
@@ -154,6 +154,7 @@ class PostAdController extends GetxController {
     print('   Title: ${draft!.title}');
     print('   Price: \$${draft!.pricePerDay}/day');
     print('   Location: ${draft!.governorate}, ${draft!.city}');
+    print('   Images: ${draft!.images.length}');
     print('──────────────────────────────────────────────────────────');
 
     // CHECK PERMISSION FIRST
@@ -168,24 +169,40 @@ class PostAdController extends GetxController {
     print('✅ Permission granted - Publishing apartment');
 
     try {
+      // ✅ Add to repository (this calls api.create() internally)
       await repo.add(draft!);
       
+      print('');
       print('✅ APARTMENT PUBLISHED SUCCESSFULLY');
       print('   Apartment ID: ${draft!.id}');
-      print('   Total apartments: ${myApartments.length}');
+      print('──────────────────────────────────────────────────────────');
+      
+      // ✅ The repo.add() already calls load(), so apartments should be updated
+      print('   Total apartments in repo: ${myApartments.length}');
+      
+      // Print apartment titles for verification
+      if (myApartments.isNotEmpty) {
+        print('   Apartments in list:');
+        for (var apt in myApartments) {
+          print('      - ${apt.title} (\$${apt.pricePerDay}/day)');
+        }
+      } else {
+        print('   ⚠️  WARNING: No apartments in list after publish!');
+        print('   Attempting manual reload...');
+        await repo.load();
+        print('   After manual reload: ${myApartments.length} apartments');
+      }
+      
       print('═══════════════════════════════════════════════════════════');
       
+      // Clear draft after successful publish
+      final publishedTitle = draft!.title;
       draft = null;
       
-      Get.snackbar(
-        '✅ نجح النشر',
-        'تم نشر الشقة بنجاح',
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
-        icon: const Icon(Icons.check_circle, color: Colors.white),
-      );
+      // NOTE: Don't show snackbar here - let the view handle it after navigation
       
     } catch (e) {
+      print('');
       print('❌ PUBLISH FAILED');
       print('   Error: $e');
       print('═══════════════════════════════════════════════════════════');
@@ -195,7 +212,10 @@ class PostAdController extends GetxController {
         'فشل نشر الشقة: $e',
         backgroundColor: AppColors.failure,
         colorText: AppColors.backgroundLight,
+        duration: const Duration(seconds: 3),
       );
+      
+      rethrow;
     }
   }
 
@@ -209,6 +229,14 @@ class PostAdController extends GetxController {
     await repo.remove(id);
     
     print('✅ Apartment deleted');
+    print('   Remaining apartments: ${myApartments.length}');
+    
+    Get.snackbar(
+      'تم الحذف',
+      'تم حذف الشقة بنجاح',
+      backgroundColor: Colors.orange,
+      colorText: Colors.white,
+    );
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -221,6 +249,13 @@ class PostAdController extends GetxController {
     await repo.edit(apt);
     
     print('✅ Apartment updated');
+    
+    Get.snackbar(
+      'تم التحديث',
+      'تم تحديث الشقة بنجاح',
+      backgroundColor: Colors.blue,
+      colorText: Colors.white,
+    );
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -244,10 +279,14 @@ class PostAdController extends GetxController {
     print('✅ Permission granted - Opening apartment form');
     print('═══════════════════════════════════════════════════════════');
     
+    // Create new draft
     startNewDraft();
     
-    // Navigate to add apartment form
-    // Get.to(() => ApartmentFormView(isEdit: false));
+    // Navigate to ApartmentFormView
+    Get.to(() => const ApartmentFormView(
+      isEdit: false,
+      editingApartment: null,
+    ));
   }
 
   // ═══════════════════════════════════════════════════════════

@@ -14,11 +14,11 @@ class RenterHomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final HomeController controller = Get.find<HomeController>();
+    final HomeController controller = Get.put(HomeController());
     final List<Widget> pages = [
       const ApartmentsScreen(),
       const FilterScreen(),
-      const FavoritesScreen(),
+       FavoritesScreen(),
       const ChatScreen(),
       const ProfileScreen(),   
     ];

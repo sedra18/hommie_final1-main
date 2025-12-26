@@ -88,8 +88,7 @@ class _ApartmentFormViewState extends State<ApartmentFormView> {
         children: [
           _field("Title", titleC),
           _field("Description", descC, maxLines: 3),
-          _field("Title", titleC),
-          _field("Description", descC, maxLines: 3),
+      
 
           Padding(
             padding: const EdgeInsets.only(bottom: 10),

@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:hommie/modules/owner/views/main_nav_view.dart';
 import 'package:hommie/modules/renter/views/home.dart';
 import 'package:hommie/modules/shared/views/welcomescreen.dart';
 
@@ -16,7 +17,7 @@ class StartupscreenController extends GetxController {
         String? role = box.read('user_role');
         print('Startup check - User Role: $role');
         if (role == 'owner') {
-          Get.offAll(() => const OwnerHomeScreen());
+          Get.offAll(() => const MainNavView());
         } else {
           Get.offAll(() => const RenterHomeScreen());
         }

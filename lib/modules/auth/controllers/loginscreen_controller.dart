@@ -53,9 +53,9 @@ class LoginScreenController extends GetxController {
     if (!key.currentState!.validate()) return;
 
     print('');
-    print('═══════════════════════════════════════════════════════════');
+   
     print(' LOGIN STARTED');
-    print('═══════════════════════════════════════════════════════════');
+   
     print('   Phone: ${userPhoneController.text}');
 
     final user = UserLoginModel(
@@ -83,10 +83,10 @@ class LoginScreenController extends GetxController {
           print('   Role: ${data.role}');
           print('   Is Approved: ${data.isApproved}');
 
-          // Save all user data
+  
           box.write('access_token', data.token);
           box.write('user_role', data.role);
-          box.write('role', data.role);  // For compatibility
+          box.write('role', data.role);  
           box.write('is_approved', data.isApproved ?? false);
 
       
@@ -103,18 +103,18 @@ class LoginScreenController extends GetxController {
             'Logged in successfully',
             backgroundColor: AppColors.success,
             colorText: AppColors.backgroundLight,
-            icon: const Icon(Icons.check_circle, color: Colors.white),
+            icon: const Icon(Icons.check_circle, color: AppColors.backgroundLight),
           );
 
           await Future.delayed(const Duration(milliseconds: 500));
 
-          // Navigate based on role
+         
           if (data.role == 'renter') {
             print('  Navigating to Renter Home');
             Get.offAll(() => RenterHomeScreen());
           } else if (data.role == 'owner') {
             print('Navigating to Owner Home');
-            Get.offAll( MainNavView());
+            Get.offAll(() => const MainNavView());
           } else {
             print(' Navigating to Default Home');
             Get.offAll(() => RenterHomeScreen());

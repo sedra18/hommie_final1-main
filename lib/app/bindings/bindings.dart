@@ -1,4 +1,5 @@
 import 'package:get/get.dart';
+import 'package:hommie/data/services/approval_status_service.dart';
 import 'package:hommie/data/services/auth_service.dart';
 import 'package:hommie/data/models/user/user_permission_controller.dart';
 import 'package:hommie/data/repositories/apartment_repository.dart';
@@ -45,6 +46,8 @@ class InitialBinding extends Bindings {
     // Navigation controller
     Get.put(NavController());
     print(' NavController');
+    Get.put((ApprovalStatusService()));
+    print(' ApprovalStatusService');
 
     print('');
     print('[InitialBinding] Core dependencies initialized');

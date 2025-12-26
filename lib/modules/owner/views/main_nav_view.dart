@@ -21,7 +21,7 @@ class MainNavView extends StatelessWidget {
     final nav = Get.find<NavController>();
 
     // All pages WITHOUT bottom nav bar
-    final pages = const [
+    final pages =  [
       OwnerHomeScreen(),
       ChatScreen(),
       FavoritesScreen(),

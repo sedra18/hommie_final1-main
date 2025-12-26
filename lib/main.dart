@@ -7,11 +7,10 @@ import 'package:hommie/modules/renter/views/home.dart';
 import 'package:hommie/modules/shared/views/startupscreen.dart';
 import 'package:hommie/modules/shared/views/welcomescreen.dart';
 
-void main() async{
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await GetStorage.init();
   runApp(const MyApp());
-
 }
 
 class MyApp extends StatefulWidget {
@@ -24,6 +23,7 @@ class _Myapp extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return GetMaterialApp(
+      debugShowCheckedModeBanner: false,
       initialRoute: '/',
       initialBinding: InitialBinding(),
       routes: {

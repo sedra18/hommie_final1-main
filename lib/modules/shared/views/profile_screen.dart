@@ -2,41 +2,196 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hommie/modules/shared/controllers/logout_controller.dart';
 import 'package:hommie/app/utils/app_colors.dart';
+import 'package:hommie/widgets/pending_approval_widget.dart';
+import 'package:hommie/data/services/approval_status_service.dart';
+
+// ═══════════════════════════════════════════════════════════
+// OWNER PROFILE SCREEN - WITH APPROVAL CHECK AND LOGOUT
+// ═══════════════════════════════════════════════════════════
 
 class ProfileScreen extends StatelessWidget {
- const ProfileScreen({super.key});
+  const ProfileScreen({super.key});
 
-@override
-Widget build(BuildContext context) {
-final LogoutController controller = Get.put(LogoutController()); 
+  @override
+  Widget build(BuildContext context) {
+    final LogoutController logoutController = Get.put(LogoutController());
+    final approvalService = Get.find<ApprovalStatusService>();
 
-return Scaffold(
-        backgroundColor: Colors.white,
- body: Center(
- child: Column(
- mainAxisAlignment: MainAxisAlignment.center,
- children: [
- const Text(
-'Profile Content',
- style: TextStyle(fontSize: 24, color: AppColors.textPrimaryLight),
- ),
-const SizedBox(height: 50),
- Obx(() => 
-SizedBox(
-height: 50,
- width: 250,
- child: ElevatedButton(
-onPressed: controller.isLoggingOut.value ? null : controller.handleLogout,
-style: ElevatedButton.styleFrom(
- backgroundColor: Colors.red,
- shape: RoundedRectangleBorder(
- borderRadius: BorderRadius.circular(10),), ),child: controller.isLoggingOut.value
-? const CircularProgressIndicator(color: Colors.white, strokeWidth: 3): const Text( 'Log Out',style: TextStyle(color: Colors.white, fontSize: 18), ), ),
- ),
-),
- ],
-),
- ),
- );
-}
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Profile"),
+        backgroundColor: AppColors.primary,
+      ),
+      backgroundColor: Colors.white,
+      body: Obx(() {
+        // ✅ Check approval status
+        if (!approvalService.isApproved.value) {
+          return PendingApprovalWidget(
+            onRefresh: () => approvalService.manualRefresh(),
+          );
+        }
+
+        // ✅ Approved - show profile content
+        return _buildProfileContent(logoutController);
+      }),
+    );
+  }
+
+  Widget _buildProfileContent(LogoutController logoutController) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        children: [
+          // Profile Avatar
+          CircleAvatar(
+            radius: 60,
+            backgroundColor: AppColors.primary.withOpacity(0.2),
+            child: Icon(
+              Icons.person,
+              size: 60,
+              color: AppColors.primary,
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Name
+          const Text(
+            'اسم المالك',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          // Email
+          const Text(
+            'owner@example.com',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey,
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Approval Status Badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.green.shade50,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.green, width: 2),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.verified, color: Colors.green, size: 20),
+                SizedBox(width: 8),
+                Text(
+                  'حساب موثق',
+                  style: TextStyle(
+                    color: Colors.green,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 32),
+
+          // Profile Options
+          _buildProfileOption(
+            icon: Icons.edit,
+            title: 'تعديل الملف الشخصي',
+            onTap: () {
+              Get.snackbar('قريباً', 'ميزة تعديل الملف الشخصي قيد التطوير');
+            },
+          ),
+
+          const Divider(),
+
+          _buildProfileOption(
+            icon: Icons.lock,
+            title: 'تغيير كلمة المرور',
+            onTap: () {
+              Get.snackbar('قريباً', 'ميزة تغيير كلمة المرور قيد التطوير');
+            },
+          ),
+
+          const Divider(),
+
+          _buildProfileOption(
+            icon: Icons.notifications,
+            title: 'الإشعارات',
+            onTap: () {
+              Get.snackbar('قريباً', 'إعدادات الإشعارات قيد التطوير');
+            },
+          ),
+
+          const Divider(),
+
+          _buildProfileOption(
+            icon: Icons.help,
+            title: 'المساعدة والدعم',
+            onTap: () {
+              Get.snackbar('قريباً', 'صفحة المساعدة قيد التطوير');
+            },
+          ),
+
+          const Divider(),
+
+          // ✅ Logout with loading state
+          Obx(() => _buildProfileOption(
+                icon: Icons.logout,
+                title: logoutController.isLoggingOut.value
+                    ? 'جاري تسجيل الخروج...'
+                    : 'تسجيل الخروج',
+                titleColor: Colors.red,
+                iconColor: Colors.red,
+                onTap: logoutController.isLoggingOut.value
+                    ? () {} // Disabled when logging out
+                    : logoutController.handleLogout,
+                trailing: logoutController.isLoggingOut.value
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.red,
+                        ),
+                      )
+                    : null,
+              )),
+
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileOption({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+    Color? titleColor,
+    Color? iconColor,
+    Widget? trailing,
+  }) {
+    return ListTile(
+      leading: Icon(icon, color: iconColor ?? AppColors.primary),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontSize: 16,
+          color: titleColor,
+        ),
+      ),
+      trailing: trailing ?? const Icon(Icons.chevron_right),
+      onTap: onTap,
+    );
+  }
 }
