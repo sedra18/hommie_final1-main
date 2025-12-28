@@ -11,6 +11,10 @@ import 'package:hommie/modules/owner/views/owner_home_screen.dart';
 import 'package:hommie/modules/renter/views/home.dart';
 import 'package:hommie/modules/shared/views/empty_screen.dart';
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> af917e11cc23fa74f5a0f47311b19cfd234f1c54
 class LoginScreenController extends GetxController {
   final AuthService _authService = Get.put(AuthService());
   final permissions = Get.put(UserPermissionsController());
@@ -47,13 +51,23 @@ class LoginScreenController extends GetxController {
     return null;
   }
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> af917e11cc23fa74f5a0f47311b19cfd234f1c54
   Future<void> login() async {
     if (!key.currentState!.validate()) return;
 
     print('');
+<<<<<<< HEAD
 
     print(' LOGIN STARTED');
 
+=======
+   
+    print(' LOGIN STARTED');
+   
+>>>>>>> af917e11cc23fa74f5a0f47311b19cfd234f1c54
     print('   Phone: ${userPhoneController.text}');
 
     final user = UserLoginModel(
@@ -65,11 +79,15 @@ class LoginScreenController extends GetxController {
     LoadingHelper.show();
 
     try {
+<<<<<<< HEAD
       print("[logincontroller]ارسل بيانات الدخول");
       final response = await _authService.loginuser(user);
       print('📥 [LoginController] ورد الرد من السيرفر');
       print('📊 [LoginController] رمز الحالة: ${response.statusCode}');
       print('👤 [LoginController] بيانات المستخدم: ${response.body}');
+=======
+      final response = await _authService.loginuser(user);
+>>>>>>> af917e11cc23fa74f5a0f47311b19cfd234f1c54
       LoadingHelper.hide();
       isLoading.value = false;
 
@@ -78,18 +96,32 @@ class LoginScreenController extends GetxController {
 
         if (data.token != null) {
           final box = GetStorage();
+<<<<<<< HEAD
 
+=======
+          
+>>>>>>> af917e11cc23fa74f5a0f47311b19cfd234f1c54
           print('');
           print(' LOGIN SUCCESSFUL');
           print('   Token: ${data.token?.substring(0, 20)}...');
           print('   Role: ${data.role}');
           print('   Is Approved: ${data.isApproved}');
 
+<<<<<<< HEAD
           box.write('access_token', data.token);
           box.write('user_role', data.role);
           box.write('role', data.role);
           box.write('is_approved', data.isApproved ?? false);
 
+=======
+  
+          box.write('access_token', data.token);
+          box.write('user_role', data.role);
+          box.write('role', data.role);  
+          box.write('is_approved', data.isApproved ?? false);
+
+      
+>>>>>>> af917e11cc23fa74f5a0f47311b19cfd234f1c54
           permissions.updateApprovalStatus(
             data.isApproved ?? false,
             data.role ?? '',
@@ -99,6 +131,7 @@ class LoginScreenController extends GetxController {
           print('   User Token: ${data.token}');
 
           Get.snackbar(
+<<<<<<< HEAD
             'Success',
             'Logged in successfully',
             backgroundColor: AppColors.success,
@@ -107,10 +140,21 @@ class LoginScreenController extends GetxController {
               Icons.check_circle,
               color: AppColors.backgroundLight,
             ),
+=======
+            'Success', 
+            'Logged in successfully',
+            backgroundColor: AppColors.success,
+            colorText: AppColors.backgroundLight,
+            icon: const Icon(Icons.check_circle, color: AppColors.backgroundLight),
+>>>>>>> af917e11cc23fa74f5a0f47311b19cfd234f1c54
           );
 
           await Future.delayed(const Duration(milliseconds: 500));
 
+<<<<<<< HEAD
+=======
+         
+>>>>>>> af917e11cc23fa74f5a0f47311b19cfd234f1c54
           if (data.role == 'renter') {
             print('  Navigating to Renter Home');
             Get.offAll(() => RenterHomeScreen());
@@ -127,12 +171,20 @@ class LoginScreenController extends GetxController {
               permissions.showPendingApprovalMessage();
             });
           }
+<<<<<<< HEAD
         } else {
           print(' No token received');
           Get.snackbar(
             "Error",
             "Login failed: No authorization token received.",
           );
+=======
+
+
+        } else {
+          print(' No token received');
+          Get.snackbar("Error", "Login failed: No authorization token received.");
+>>>>>>> af917e11cc23fa74f5a0f47311b19cfd234f1c54
         }
       } else {
         print(' LOGIN FAILED');
@@ -142,6 +194,7 @@ class LoginScreenController extends GetxController {
     } catch (e, stackTrace) {
       LoadingHelper.hide();
       isLoading.value = false;
+<<<<<<< HEAD
 
       print(' LOGIN EXCEPTION');
       print('   Error: $e');
@@ -149,10 +202,22 @@ class LoginScreenController extends GetxController {
         '   Stack: ${stackTrace.toString().split('\n').take(3).join('\n')}',
       );
 
+=======
+      
+      print(' LOGIN EXCEPTION');
+      print('   Error: $e');
+      print('   Stack: ${stackTrace.toString().split('\n').take(3).join('\n')}');
+      
+>>>>>>> af917e11cc23fa74f5a0f47311b19cfd234f1c54
       Get.snackbar('Error', 'Connection error!');
     }
   }
 
+<<<<<<< HEAD
+=======
+
+  
+>>>>>>> af917e11cc23fa74f5a0f47311b19cfd234f1c54
   Future<void> sendResetOtp() async {
     if (resetPhoneController.text.length < 9) {
       Get.snackbar("Error", "Please enter a valid phone number.");
@@ -201,19 +266,27 @@ class LoginScreenController extends GetxController {
               keyboardType: TextInputType.phone,
               decoration: InputDecoration(
                 hintText: "Phone Number",
+<<<<<<< HEAD
                 prefixIcon: const Icon(
                   Icons.phone,
                   color: AppColors.textSecondaryLight,
                 ),
+=======
+                prefixIcon: const Icon(Icons.phone, color: AppColors.textSecondaryLight),
+>>>>>>> af917e11cc23fa74f5a0f47311b19cfd234f1c54
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
+<<<<<<< HEAD
                   borderSide: const BorderSide(
                     color: AppColors.primary,
                     width: 2,
                   ),
+=======
+                  borderSide: const BorderSide(color: AppColors.primary, width: 2),
+>>>>>>> af917e11cc23fa74f5a0f47311b19cfd234f1c54
                 ),
               ),
             ),
@@ -253,26 +326,40 @@ class LoginScreenController extends GetxController {
       content: SingleChildScrollView(
         child: Column(
           children: [
+<<<<<<< HEAD
             const Text("Enter the verification code sent to your phone."),
+=======
+            const Text(
+              "Enter the verification code sent to your phone.",
+            ),
+>>>>>>> af917e11cc23fa74f5a0f47311b19cfd234f1c54
             const SizedBox(height: 15),
             TextFormField(
               controller: otpController,
               keyboardType: TextInputType.number,
               decoration: InputDecoration(
                 hintText: "OTP Code",
+<<<<<<< HEAD
                 prefixIcon: const Icon(
                   Icons.pin,
                   color: AppColors.textSecondaryLight,
                 ),
+=======
+                prefixIcon: const Icon(Icons.pin, color: AppColors.textSecondaryLight),
+>>>>>>> af917e11cc23fa74f5a0f47311b19cfd234f1c54
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
+<<<<<<< HEAD
                   borderSide: const BorderSide(
                     color: AppColors.primary,
                     width: 2,
                   ),
+=======
+                  borderSide: const BorderSide(color: AppColors.primary, width: 2),
+>>>>>>> af917e11cc23fa74f5a0f47311b19cfd234f1c54
                 ),
               ),
             ),
@@ -339,26 +426,40 @@ class LoginScreenController extends GetxController {
       content: SingleChildScrollView(
         child: Column(
           children: [
+<<<<<<< HEAD
             const Text("Enter your new password."),
+=======
+            const Text(
+              "Enter your new password.",
+            ),
+>>>>>>> af917e11cc23fa74f5a0f47311b19cfd234f1c54
             const SizedBox(height: 15),
             TextFormField(
               controller: newPasswordController,
               obscureText: true,
               decoration: InputDecoration(
                 hintText: "New Password",
+<<<<<<< HEAD
                 prefixIcon: const Icon(
                   Icons.lock,
                   color: AppColors.textSecondaryLight,
                 ),
+=======
+                prefixIcon: const Icon(Icons.lock, color: AppColors.textSecondaryLight),
+>>>>>>> af917e11cc23fa74f5a0f47311b19cfd234f1c54
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
+<<<<<<< HEAD
                   borderSide: const BorderSide(
                     color: AppColors.primary,
                     width: 2,
                   ),
+=======
+                  borderSide: const BorderSide(color: AppColors.primary, width: 2),
+>>>>>>> af917e11cc23fa74f5a0f47311b19cfd234f1c54
                 ),
               ),
             ),
@@ -386,6 +487,10 @@ class LoginScreenController extends GetxController {
     );
   }
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> af917e11cc23fa74f5a0f47311b19cfd234f1c54
   Future<void> resetPassword() async {
     if (newPasswordController.text.length < 6) {
       Get.snackbar("Error", "Password must be at least 6 characters.");
@@ -394,9 +499,16 @@ class LoginScreenController extends GetxController {
 
     LoadingHelper.show();
     try {
+<<<<<<< HEAD
       final response = await _authService.resetPassword(
         resetPhoneController.text,
         newPasswordController.text,
+=======
+  
+      final response = await _authService.resetPassword(
+        resetPhoneController.text,    
+        newPasswordController.text,   
+>>>>>>> af917e11cc23fa74f5a0f47311b19cfd234f1c54
       );
       LoadingHelper.hide();
 
@@ -421,4 +533,8 @@ class LoginScreenController extends GetxController {
     newPasswordController.dispose();
     super.onClose();
   }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> af917e11cc23fa74f5a0f47311b19cfd234f1c54

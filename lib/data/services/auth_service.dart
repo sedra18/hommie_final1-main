@@ -23,6 +23,7 @@ class AuthService extends GetConnect {
   void onInit() {
     httpClient.baseUrl = '${BaseUrl.pubBaseUrl}';
     httpClient.defaultContentType = 'application/json';
+<<<<<<< HEAD
 
     // ⬇⬇⬇ أضف هذا السطر فقط ⬇⬇⬇
     httpClient.timeout = Duration(seconds: 30);
@@ -72,6 +73,28 @@ class AuthService extends GetConnect {
       print('❌ [AuthService] خطأ: $e');
       return Response(statusCode: 500, statusText: e.toString(), body: null);
     }
+=======
+  }
+
+  Future<Response<UserResponseModel>> loginuser(UserLoginModel user) async {
+    final response = await post(
+      '/api/auth/login',
+      user.toJson(),
+    );
+
+    if (response.statusCode == 200 &&
+        response.body is Map<String, dynamic>) {
+      return Response(
+        statusCode: 200,
+        body: UserResponseModel.fromJson(response.body),
+      );
+    }
+
+    return Response(
+      statusCode: response.statusCode,
+      statusText: response.statusText,
+    );
+>>>>>>> af917e11cc23fa74f5a0f47311b19cfd234f1c54
   }
 
   Future<Response> sendResetOtp(String phone) {
@@ -79,7 +102,14 @@ class AuthService extends GetConnect {
   }
 
   Future<Response> verifyResetOtp(String phone, String code) {
+<<<<<<< HEAD
     return post('/api/auth/verifyResetOtp', {'phone': phone, 'code': code});
+=======
+    return post('/api/auth/verifyResetOtp', {
+      'phone': phone,
+      'code': code,
+    });
+>>>>>>> af917e11cc23fa74f5a0f47311b19cfd234f1c54
   }
 
   Future<Response> resetPassword(String phone, String newPassword) {

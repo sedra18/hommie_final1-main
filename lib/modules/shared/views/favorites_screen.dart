@@ -9,12 +9,20 @@ import 'package:hommie/data/services/approval_status_service.dart';
 // ═══════════════════════════════════════════════════════════
 
 class FavoritesScreen extends StatelessWidget {
+<<<<<<< HEAD
   FavoritesScreen({super.key});
+=======
+   FavoritesScreen({super.key});
+>>>>>>> af917e11cc23fa74f5a0f47311b19cfd234f1c54
 
   @override
   Widget build(BuildContext context) {
     final approvalService = Get.find<ApprovalStatusService>();
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> af917e11cc23fa74f5a0f47311b19cfd234f1c54
     return Scaffold(
       appBar: AppBar(
         title: const Text("Favorites"),
@@ -27,7 +35,11 @@ class FavoritesScreen extends StatelessWidget {
             onRefresh: () => approvalService.manualRefresh(),
           );
         }
+<<<<<<< HEAD
 
+=======
+        
+>>>>>>> af917e11cc23fa74f5a0f47311b19cfd234f1c54
         // ✅ Approved - show favorites
         return _buildFavoritesContent();
       }),
@@ -42,16 +54,39 @@ class FavoritesScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+<<<<<<< HEAD
             Icon(Icons.favorite_border, size: 80, color: Colors.grey.shade400),
             const SizedBox(height: 16),
             const Text(
               'لا توجد مفضلات',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+=======
+            Icon(
+              Icons.favorite_border,
+              size: 80,
+              color: Colors.grey.shade400,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'لا توجد مفضلات',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+>>>>>>> af917e11cc23fa74f5a0f47311b19cfd234f1c54
             ),
             const SizedBox(height: 8),
             const Text(
               'يمكنك إضافة شقق إلى المفضلة للوصول إليها بسهولة',
+<<<<<<< HEAD
               style: TextStyle(fontSize: 14),
+=======
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.black54,
+              ),
+>>>>>>> af917e11cc23fa74f5a0f47311b19cfd234f1c54
               textAlign: TextAlign.center,
             ),
           ],
@@ -59,4 +94,8 @@ class FavoritesScreen extends StatelessWidget {
       ),
     );
   }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> af917e11cc23fa74f5a0f47311b19cfd234f1c54

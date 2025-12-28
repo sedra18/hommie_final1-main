@@ -18,6 +18,7 @@ class RenterHomeScreen extends StatelessWidget {
     final List<Widget> pages = [
       const ApartmentsScreen(),
       const FilterScreen(),
+<<<<<<< HEAD
       FavoritesScreen(),
       const ChatScreen(),
       const ProfileScreen(),
@@ -49,3 +50,27 @@ class RenterHomeScreen extends StatelessWidget {
     );
   }
 }
+=======
+       FavoritesScreen(),
+      const ChatScreen(),
+      const ProfileScreen(),   
+    ];
+
+    return Scaffold(
+      appBar: AppBar(backgroundColor: AppColors.primary,title:Text("Hommie",style: TextStyle(color: AppColors.textPrimaryDark,fontSize: 32)) ,centerTitle: true,),
+      backgroundColor: AppColors.backgroundLight,
+
+      body: PageView(
+        controller: controller.pageController,
+        physics: const NeverScrollableScrollPhysics(), 
+        children: pages,
+      ),
+      
+      bottomNavigationBar: Obx(() => CustomNavBar(
+        currentIndex: controller.currentIndex.value,
+        onTap: controller.changeTabIndex,
+      )),
+    );
+  }
+}
+>>>>>>> af917e11cc23fa74f5a0f47311b19cfd234f1c54
