@@ -6,11 +6,21 @@ class EmptyScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+<<<<<<< HEAD
+    return Scaffold(
+      //backgroundColor: AppColors.backgroundLight,
+=======
     return Scaffold(backgroundColor: AppColors.backgroundLight,
+>>>>>>> af917e11cc23fa74f5a0f47311b19cfd234f1c54
       appBar: AppBar(
         backgroundColor: AppColors.primary,
         centerTitle: true,
         elevation: 0,
+<<<<<<< HEAD
+      ),
+    );
+=======
       ),);
+>>>>>>> af917e11cc23fa74f5a0f47311b19cfd234f1c54
   }
 }
