@@ -1,157 +1,317 @@
+import 'dart:convert';
+import 'package:hommie/helpers/base_url.dart';
+import 'package:http/http.dart' as http;
+import 'package:hommie/data/models/apartment/apartment_model.dart';
+import 'package:hommie/data/services/token_storage_service.dart';
 import 'package:get/get.dart';
-import 'package:hommie/data/models/apartment/owner_apartment_model.dart';
-import 'package:hommie/data/services/owner_aparment_service.dart';
 
 // ═══════════════════════════════════════════════════════════
-// APARTMENT REPOSITORY - COMPLETE WITH DELETE
+// APARTMENT REPOSITORY
+// Handles all apartment-related API calls
 // ═══════════════════════════════════════════════════════════
 
-class ApartmentRepository extends GetxService {
-  final api = ApartmentApi();
+class ApartmentRepository {
+  static String _baseUrl = '${BaseUrl.pubBaseUrl}/api';
+  final _tokenService = Get.find<TokenStorageService>();
+
+  // ═══════════════════════════════════════════════════════════
+  // GET ALL APARTMENTS
+  // Fetch all apartments from the API
+  // ═══════════════════════════════════════════════════════════
   
-  // Observable list of apartments
-  final apartments = <OwnerApartmentModel>[].obs;
-
-  // ═══════════════════════════════════════════════════════════
-  // LOAD APARTMENTS FROM BACKEND
-  // ═══════════════════════════════════════════════════════════
-  Future<void> load() async {
-    print('');
-    print('═══════════════════════════════════════════════════════════');
-    print('🔄 REFRESHING APARTMENTS LIST');
-    
+  Future<List<ApartmentModel>> getAllApartments() async {
     try {
-      final fetchedApartments = await api.fetchAll();
-      apartments.value = fetchedApartments;
+      final token = await _tokenService.getAccessToken();
       
-      print('✅ List refreshed: ${apartments.length} apartments');
-      print('═══════════════════════════════════════════════════════════');
-    } catch (e) {
-      print('❌ Error loading apartments: $e');
-      print('═══════════════════════════════════════════════════════════');
-    }
-  }
+      final response = await http.get(
+        Uri.parse('$_baseUrl/apartments'),
+        headers: {
+          'Accept': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+      );
 
-  // ═══════════════════════════════════════════════════════════
-  // ADD APARTMENT
-  // ═══════════════════════════════════════════════════════════
-  Future<void> add(OwnerApartmentModel apartment) async {
-    print('');
-    print('═══════════════════════════════════════════════════════════');
-    print('➕ ADDING APARTMENT TO BACKEND');
-    print('   Title: ${apartment.title}');
-    print('──────────────────────────────────────────────────────────');
-    
-    try {
-      // Create in backend
-      await api.create(apartment);
-      print('✅ Created in backend');
-      print('──────────────────────────────────────────────────────────');
-      
-      // Refresh list from backend
-      print('🔄 Refreshing list...');
-      await load();
-      
-      print('✅ ADD COMPLETE');
-      print('   Total apartments: ${apartments.length}');
-      print('═══════════════════════════════════════════════════════════');
-    } catch (e) {
-      print('❌ Error adding apartment: $e');
-      print('═══════════════════════════════════════════════════════════');
-      rethrow;
-    }
-  }
+      print('📡 GET /apartments - Status: ${response.statusCode}');
 
-  // ═══════════════════════════════════════════════════════════
-  // REMOVE APARTMENT
-  // ═══════════════════════════════════════════════════════════
-  Future<void> remove(String id) async {
-    print('');
-    print('═══════════════════════════════════════════════════════════');
-    print('🗑️  REMOVING APARTMENT FROM BACKEND');
-    print('   ID: $id');
-    print('──────────────────────────────────────────────────────────');
-    
-    try {
-      // Find apartment before deleting (for logging)
-      final apartment = apartments.firstWhereOrNull((apt) => apt.id == id);
-      if (apartment != null) {
-        print('   Title: ${apartment.title}');
-        print('   Price: \$${apartment.pricePerDay}/day');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        
+        // Handle different response formats
+        List<dynamic> apartmentsJson;
+        
+        if (data is List) {
+          apartmentsJson = data;
+        } else if (data is Map && data.containsKey('data')) {
+          apartmentsJson = data['data'] as List;
+        } else if (data is Map && data.containsKey('apartments')) {
+          apartmentsJson = data['apartments'] as List;
+        } else {
+          print('⚠️ Unexpected response format');
+          return [];
+        }
+
+        final apartments = apartmentsJson
+            .map((json) => ApartmentModel.fromJson(json))
+            .toList();
+
+        print('✅ Fetched ${apartments.length} apartments');
+        return apartments;
+      } else {
+        print('❌ Failed to fetch apartments: ${response.statusCode}');
+        print('Response: ${response.body}');
+        return [];
       }
-      
-      print('──────────────────────────────────────────────────────────');
-      print('📤 Calling backend DELETE...');
-      
-      // Delete from backend
-      await api.delete(id);
-      
-      print('✅ Deleted from backend');
-      print('──────────────────────────────────────────────────────────');
-      print('🔄 Refreshing list...');
-      
-      // Refresh list from backend
-      await load();
-      
-      print('');
-      print('✅ REMOVE COMPLETE');
-      print('   Total apartments: ${apartments.length}');
-      print('═══════════════════════════════════════════════════════════');
     } catch (e) {
-      print('');
-      print('❌ Error removing apartment: $e');
-      print('═══════════════════════════════════════════════════════════');
-      rethrow;
-    }
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // EDIT APARTMENT
-  // ═══════════════════════════════════════════════════════════
-  Future<void> edit(OwnerApartmentModel apartment) async {
-    print('');
-    print('═══════════════════════════════════════════════════════════');
-    print('📝 EDITING APARTMENT IN BACKEND');
-    print('   ID: ${apartment.id}');
-    print('   Title: ${apartment.title}');
-    print('──────────────────────────────────────────────────────────');
-    
-    try {
-      // Update in backend
-      await api.update(apartment);
-      print('✅ Updated in backend');
-      print('──────────────────────────────────────────────────────────');
-      
-      // Refresh list from backend
-      print('🔄 Refreshing list...');
-      await load();
-      
-      print('✅ EDIT COMPLETE');
-      print('   Total apartments: ${apartments.length}');
-      print('═══════════════════════════════════════════════════════════');
-    } catch (e) {
-      print('❌ Error editing apartment: $e');
-      print('═══════════════════════════════════════════════════════════');
-      rethrow;
+      print('❌ Error fetching apartments: $e');
+      return [];
     }
   }
 
   // ═══════════════════════════════════════════════════════════
   // GET APARTMENT BY ID
+  // Fetch detailed information about a specific apartment
   // ═══════════════════════════════════════════════════════════
-  OwnerApartmentModel? getById(String id) {
+  
+  Future<ApartmentModel?> getApartmentById(int id) async {
     try {
-      return apartments.firstWhere((apt) => apt.id == id);
+      final token = await _tokenService.getAccessToken();
+      
+      final response = await http.get(
+        Uri.parse('$_baseUrl/apartments/$id'),
+        headers: {
+          'Accept': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+      );
+
+      print('📡 GET /apartments/$id - Status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        
+        // Handle different response formats
+        Map<String, dynamic> apartmentJson;
+        
+        if (data is Map && data.containsKey('data')) {
+          apartmentJson = data['data'] as Map<String, dynamic>;
+        } else if (data is Map && data.containsKey('apartment')) {
+          apartmentJson = data['apartment'] as Map<String, dynamic>;
+        } else if (data is Map) {
+          apartmentJson = data as Map<String, dynamic>;
+        } else {
+          print('⚠️ Unexpected response format');
+          return null;
+        }
+
+        final apartment = ApartmentModel.fromJson(apartmentJson);
+        print('✅ Fetched apartment: ${apartment.title}');
+        return apartment;
+      } else {
+        print('❌ Failed to fetch apartment: ${response.statusCode}');
+        return null;
+      }
     } catch (e) {
+      print('❌ Error fetching apartment: $e');
       return null;
     }
   }
 
   // ═══════════════════════════════════════════════════════════
-  // CLEAR ALL (for logout)
+  // DELETE APARTMENT
+  // Delete an apartment (owner only)
   // ═══════════════════════════════════════════════════════════
-  void clear() {
-    apartments.clear();
-    print('🧹 Apartment repository cleared');
+  
+  Future<bool> deleteApartment(int id) async {
+    try {
+      final token = await _tokenService.getAccessToken();
+      
+      if (token == null) {
+        print('⚠️ No token found');
+        return false;
+      }
+      
+      final response = await http.delete(
+        Uri.parse('$_baseUrl/apartments/$id'),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      print('📡 DELETE /apartments/$id - Status: ${response.statusCode}');
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        print('✅ Apartment deleted successfully');
+        return true;
+      } else {
+        print('❌ Failed to delete apartment: ${response.statusCode}');
+        print('Response: ${response.body}');
+        return false;
+      }
+    } catch (e) {
+      print('❌ Error deleting apartment: $e');
+      return false;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // CREATE APARTMENT
+  // Create a new apartment (owner only)
+  // ═══════════════════════════════════════════════════════════
+  
+  Future<ApartmentModel?> createApartment(Map<String, dynamic> apartmentData) async {
+    try {
+      final token = await _tokenService.getAccessToken();
+      
+      if (token == null) {
+        print('⚠️ No token found');
+        return null;
+      }
+      
+      final response = await http.post(
+        Uri.parse('$_baseUrl/apartments'),
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(apartmentData),
+      );
+
+      print('📡 POST /apartments - Status: ${response.statusCode}');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+        
+        Map<String, dynamic> apartmentJson;
+        if (data is Map && data.containsKey('data')) {
+          apartmentJson = data['data'] as Map<String, dynamic>;
+        } else if (data is Map && data.containsKey('apartment')) {
+          apartmentJson = data['apartment'] as Map<String, dynamic>;
+        } else if (data is Map) {
+          apartmentJson = data as Map<String, dynamic>;
+        } else {
+          print('⚠️ Unexpected response format');
+          return null;
+        }
+
+        final apartment = ApartmentModel.fromJson(apartmentJson);
+        print('✅ Apartment created: ${apartment.title}');
+        return apartment;
+      } else {
+        print('❌ Failed to create apartment: ${response.statusCode}');
+        print('Response: ${response.body}');
+        return null;
+      }
+    } catch (e) {
+      print('❌ Error creating apartment: $e');
+      return null;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // UPDATE APARTMENT
+  // Update an existing apartment (owner only)
+  // ═══════════════════════════════════════════════════════════
+  
+  Future<ApartmentModel?> updateApartment(
+    int id,
+    Map<String, dynamic> apartmentData,
+  ) async {
+    try {
+      final token = await _tokenService.getAccessToken();
+      
+      if (token == null) {
+        print('⚠️ No token found');
+        return null;
+      }
+      
+      final response = await http.put(
+        Uri.parse('$_baseUrl/apartments/$id'),
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(apartmentData),
+      );
+
+      print('📡 PUT /apartments/$id - Status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        
+        Map<String, dynamic> apartmentJson;
+        if (data is Map && data.containsKey('data')) {
+          apartmentJson = data['data'] as Map<String, dynamic>;
+        } else if (data is Map && data.containsKey('apartment')) {
+          apartmentJson = data['apartment'] as Map<String, dynamic>;
+        } else if (data is Map) {
+          apartmentJson = data as Map<String, dynamic>;
+        } else {
+          print('⚠️ Unexpected response format');
+          return null;
+        }
+
+        final apartment = ApartmentModel.fromJson(apartmentJson);
+        print('✅ Apartment updated: ${apartment.title}');
+        return apartment;
+      } else {
+        print('❌ Failed to update apartment: ${response.statusCode}');
+        print('Response: ${response.body}');
+        return null;
+      }
+    } catch (e) {
+      print('❌ Error updating apartment: $e');
+      return null;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // SEARCH APARTMENTS
+  // Search apartments by query
+  // ═══════════════════════════════════════════════════════════
+  
+  Future<List<ApartmentModel>> searchApartments(String query) async {
+    try {
+      final token = await _tokenService.getAccessToken();
+      
+      final response = await http.get(
+        Uri.parse('$_baseUrl/apartments/search?q=$query'),
+        headers: {
+          'Accept': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+      );
+
+      print('📡 GET /apartments/search?q=$query - Status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        
+        List<dynamic> apartmentsJson;
+        if (data is List) {
+          apartmentsJson = data;
+        } else if (data is Map && data.containsKey('data')) {
+          apartmentsJson = data['data'] as List;
+        } else {
+          print('⚠️ Unexpected response format');
+          return [];
+        }
+
+        final apartments = apartmentsJson
+            .map((json) => ApartmentModel.fromJson(json))
+            .toList();
+
+        print('✅ Found ${apartments.length} apartments');
+        return apartments;
+      } else {
+        print('❌ Failed to search apartments: ${response.statusCode}');
+        return [];
+      }
+    } catch (e) {
+      print('❌ Error searching apartments: $e');
+      return [];
+    }
   }
 }

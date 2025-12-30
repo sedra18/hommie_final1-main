@@ -1,295 +1,344 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:get_storage/get_storage.dart';
 import 'package:hommie/data/models/apartment/apartment_model.dart';
-import 'package:hommie/data/services/apartments_service.dart';
-import 'package:http/http.dart' as http;
-import 'package:hommie/helpers/base_url.dart';
+import 'package:hommie/data/repositories/apartment_repository.dart';
+import 'package:hommie/data/services/approval_status_service.dart';
+import 'package:hommie/data/services/token_storage_service.dart';
 
 // ═══════════════════════════════════════════════════════════
-// OWNER HOME CONTROLLER
-// Shows owner's apartments + all other apartments
-// No userId needed - uses ID comparison
+// OWNER HOME CONTROLLER - WITH AUTO-REFRESH
+// Automatically refreshes apartments when approval status changes
 // ═══════════════════════════════════════════════════════════
 
 class OwnerHomeController extends GetxController {
-  final myApartments = <ApartmentModel>[].obs;      // My apartments
-  final otherApartments = <ApartmentModel>[].obs;   // Others' apartments
-  final allApartments = <ApartmentModel>[].obs;     // All apartments combined
-  
+  final _apartmentRepo = Get.find<ApartmentRepository>();
+  final _approvalService = Get.find<ApprovalStatusService>();
+  final _tokenService = Get.find<TokenStorageService>();
+
+  // Observables
+  final apartments = <ApartmentModel>[].obs;
   final isLoading = false.obs;
-  final isRefreshing = false.obs;
-  
-  final box = GetStorage();
-  
+  final selectedGovernorate = ''.obs;
+  final searchQuery = ''.obs;
+
+  // User ID (cached)
+  int? _currentUserId;
+
   @override
   void onInit() {
     super.onInit();
-    print('');
-    print('═══════════════════════════════════════════════════════════');
-    print('🏠 OWNER HOME CONTROLLER - INITIALIZING');
-    print('═══════════════════════════════════════════════════════════');
-    loadApartments();
+    _initializeController();
+    _setupApprovalListener(); // ✅ Listen for approval changes
   }
-  
+
   // ═══════════════════════════════════════════════════════════
-  // LOAD ALL APARTMENTS
+  // SETUP APPROVAL LISTENER
+  // Automatically refresh apartments when approval status changes
   // ═══════════════════════════════════════════════════════════
   
-  Future<void> loadApartments() async {
-    if (isLoading.value) {
-      print('⚠️  Already loading apartments');
-      return;
-    }
-    
-    isLoading.value = true;
-    
-    print('');
-    print('═══════════════════════════════════════════════════════════');
-    print('📥 LOADING APARTMENTS FOR OWNER');
-    print('═══════════════════════════════════════════════════════════');
-    
+  void _setupApprovalListener() {
+    // ✅ Watch for approval status changes
+    ever(_approvalService.isApproved, (isApproved) {
+      print('🔔 [OWNER] Approval status changed to: $isApproved');
+      if (isApproved) {
+        print('✅ [OWNER] User approved! Refreshing apartments...');
+        fetchApartments();
+      }
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // INITIALIZE CONTROLLER
+  // ═══════════════════════════════════════════════════════════
+  
+  Future<void> _initializeController() async {
+    await _loadCurrentUserId();
+    await _approvalService.checkApprovalStatus();
+    await fetchApartments();
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // LOAD CURRENT USER ID
+  // ═══════════════════════════════════════════════════════════
+  
+  Future<void> _loadCurrentUserId() async {
+    _currentUserId = await _tokenService.getUserId();
+    print('✅ [OWNER] Current User ID: $_currentUserId');
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // FETCH APARTMENTS
+  // ═══════════════════════════════════════════════════════════
+  
+  Future<void> fetchApartments() async {
     try {
-      // Step 1: Get MY apartments (owner endpoint)
-      print('📥 Step 1: Fetching MY apartments...');
-      await _loadMyApartments();
+      isLoading.value = true;
+      print('📥 [OWNER] Fetching apartments...');
       
-      // Step 2: Get ALL apartments (public endpoint)
-      print('📥 Step 2: Fetching ALL apartments...');
-      await _loadAllApartments();
+      final result = await _apartmentRepo.getAllApartments();
+      apartments.value = result;
       
-      // Step 3: Separate my apartments from others
-      print('🔄 Step 3: Separating apartments...');
-      _separateApartments();
+      print('✅ [OWNER] Loaded ${apartments.length} apartments');
+      print('   - My apartments: ${myApartments.length}');
+      print('   - Other apartments: ${otherApartments.length}');
       
-      print('');
-      print('✅ APARTMENTS LOADED SUCCESSFULLY:');
-      print('   My apartments: ${myApartments.length}');
-      print('   Other apartments: ${otherApartments.length}');
-      print('   Total: ${allApartments.length}');
-      print('═══════════════════════════════════════════════════════════');
+      // ✅ Force UI update
+      apartments.refresh();
       
     } catch (e) {
-      print('');
-      print('❌ ERROR LOADING APARTMENTS');
-      print('   Error: $e');
-      print('═══════════════════════════════════════════════════════════');
+      print('❌ [OWNER] Error loading apartments: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to load apartments. Please try again.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
     } finally {
       isLoading.value = false;
     }
   }
-  
-  // ═══════════════════════════════════════════════════════════
-  // LOAD MY APARTMENTS (from owner endpoint)
-  // ═══════════════════════════════════════════════════════════
-  
-  Future<void> _loadMyApartments() async {
-    try {
-      final token = box.read('access_token');
-      if (token == null) {
-        print('⚠️  No token found - cannot fetch owner apartments');
-        myApartments.clear();
-        return;
-      }
-      
-      final url = Uri.parse('${BaseUrl.pubBaseUrl}/owner/apartments');
-      print('   URL: $url');
-      
-      final response = await http.get(
-        url,
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
-      
-      print('   Status: ${response.statusCode}');
-      
-      if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
-        
-        // Handle different response structures
-        List<dynamic> apartmentsJson = [];
-        
-        if (decoded is List) {
-          apartmentsJson = decoded;
-        } else if (decoded is Map) {
-          if (decoded['data'] is List) {
-            apartmentsJson = decoded['data'];
-          } else if (decoded['data'] is Map && decoded['data']['data'] is List) {
-            apartmentsJson = decoded['data']['data'];
-          }
-        }
-        
-        myApartments.value = apartmentsJson
-            .map((json) {
-              try {
-                return ApartmentModel.fromJson(json);
-              } catch (e) {
-                print('   ⚠️  Failed to parse apartment: $e');
-                return null;
-              }
-            })
-            .whereType<ApartmentModel>()
-            .toList();
-        
-        print('   ✅ Loaded ${myApartments.length} of my apartments');
-        
-        if (myApartments.isNotEmpty) {
-          print('   My apartment IDs: ${myApartments.map((a) => a.id).toList()}');
-        }
-        
-      } else if (response.statusCode == 401) {
-        print('   ❌ Authentication failed');
-        myApartments.clear();
-      } else {
-        print('   ❌ Failed with status ${response.statusCode}');
-        print('   Response: ${response.body}');
-        myApartments.clear();
-      }
-      
-    } catch (e) {
-      print('   ❌ Error: $e');
-      myApartments.clear();
-    }
-  }
-  
-  // ═══════════════════════════════════════════════════════════
-  // LOAD ALL APARTMENTS (from public endpoint)
-  // ═══════════════════════════════════════════════════════════
-  
-  Future<void> _loadAllApartments() async {
-    try {
-      final apartments = await ApartmentsService.fetchApartments();
-      allApartments.value = apartments;
-      
-      print('   ✅ Loaded ${allApartments.length} total apartments');
-      
-    } catch (e) {
-      print('   ❌ Error: $e');
-      allApartments.clear();
-    }
-  }
-  
-  // ═══════════════════════════════════════════════════════════
-  // SEPARATE MY APARTMENTS FROM OTHERS
-  // ═══════════════════════════════════════════════════════════
-  
-  void _separateApartments() {
-    // Get IDs of my apartments
-    final myIds = myApartments.map((apt) => apt.id).toSet();
-    
-    print('   My apartment IDs: $myIds');
-    
-    // Filter: apartments NOT in my IDs = other apartments
-    otherApartments.value = allApartments
-        .where((apt) => !myIds.contains(apt.id))
-        .toList();
-    
-    print('   ✅ Separated:');
-    print('      - My apartments: ${myApartments.length}');
-    print('      - Other apartments: ${otherApartments.length}');
-  }
-  
-  // ═══════════════════════════════════════════════════════════
-  // CHECK IF APARTMENT IS MINE
-  // ═══════════════════════════════════════════════════════════
-  
-  bool isMyApartment(int apartmentId) {
-    final isMine = myApartments.any((apt) => apt.id == apartmentId);
-    return isMine;
-  }
-  
-  bool isMyApartmentObj(ApartmentModel apartment) {
-    return isMyApartment(apartment.id);
-  }
-  
-  // ═══════════════════════════════════════════════════════════
-  // REFRESH
-  // ═══════════════════════════════════════════════════════════
-  
-  Future<void> refresh() async {
-    if (isRefreshing.value) return;
-    
-    isRefreshing.value = true;
-    
-    print('');
-    print('🔄 REFRESHING APARTMENTS...');
-    
-    try {
-      await _loadMyApartments();
-      await _loadAllApartments();
-      _separateApartments();
-      
-      print('✅ Refresh complete');
-      
-    } catch (e) {
-      print('❌ Refresh failed: $e');
-    } finally {
-      isRefreshing.value = false;
-    }
-  }
-  
+
   // ═══════════════════════════════════════════════════════════
   // DELETE APARTMENT
   // ═══════════════════════════════════════════════════════════
   
   Future<void> deleteApartment(int apartmentId) async {
-    print('');
-    print('🗑️  Deleting apartment: $apartmentId');
-    
     try {
-      final token = box.read('access_token');
-      if (token == null) {
-        throw Exception('No token');
-      }
-      
-      final url = Uri.parse('${BaseUrl.pubBaseUrl}/owner/apartments/$apartmentId');
-      
-      final response = await http.delete(
-        url,
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
-      
-      if (response.statusCode == 200 || response.statusCode == 204) {
-        print('✅ Apartment deleted successfully');
-        
-        // Remove from lists
-        myApartments.removeWhere((apt) => apt.id == apartmentId);
-        allApartments.removeWhere((apt) => apt.id == apartmentId);
-        
+      print('🗑️ [OWNER] Deleting apartment ID: $apartmentId');
+
+      // Call API to delete
+      final success = await _apartmentRepo.deleteApartment(apartmentId);
+
+      if (success) {
+        // Remove from local list
+        apartments.removeWhere((apt) => apt.id == apartmentId);
+        apartments.refresh();
+
         Get.snackbar(
-          'Deleted',
+          'Success',
           'Apartment deleted successfully',
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
-          icon: const Icon(Icons.check, color: Colors.white),
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: const Color(0xFF22C55E),
+          colorText: const Color(0xFFFFFFFF),
+          icon: const Icon(
+            Icons.check_circle,
+            color: Color(0xFFFFFFFF),
+          ),
         );
-        
+
+        print('✅ [OWNER] Apartment deleted successfully');
       } else {
-        throw Exception('Failed to delete: ${response.statusCode}');
+        Get.snackbar(
+          'Error',
+          'Failed to delete apartment. Please try again.',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: const Color(0xFFEF4444),
+          colorText: const Color(0xFFFFFFFF),
+        );
+        print('❌ [OWNER] Failed to delete apartment');
       }
-      
     } catch (e) {
-      print('❌ Error deleting: $e');
-      
+      print('❌ [OWNER] Error deleting apartment: $e');
       Get.snackbar(
         'Error',
-        'Failed to delete apartment',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-        icon: const Icon(Icons.error, color: Colors.white),
+        'An error occurred while deleting the apartment.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFFEF4444),
+        colorText: const Color(0xFFFFFFFF),
       );
     }
   }
+
+  // ═══════════════════════════════════════════════════════════
+  // GET ALL APARTMENTS
+  // Returns all apartments (for "All" tab or general viewing)
+  // ═══════════════════════════════════════════════════════════
   
+  List<ApartmentModel> get allApartments {
+    return apartments;
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // GET MY APARTMENTS
+  // Filter apartments that belong to current user
+  // ═══════════════════════════════════════════════════════════
+  
+  List<ApartmentModel> get myApartments {
+    if (_currentUserId == null) return [];
+    
+    return apartments
+        .where((apt) => apt.belongsToUser(_currentUserId))
+        .toList();
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // GET OTHER APARTMENTS (not owned by current user)
+  // Used in home screen to show other owners' apartments
+  // ═══════════════════════════════════════════════════════════
+  
+  List<ApartmentModel> get otherApartments {
+    if (_currentUserId == null) return apartments;
+    
+    return apartments
+        .where((apt) => !apt.belongsToUser(_currentUserId))
+        .toList();
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // CHECK IF APARTMENT IS MINE
+  // ═══════════════════════════════════════════════════════════
+  
+  bool isMyApartment(ApartmentModel apartment) {
+    if (_currentUserId == null) return false;
+    return apartment.belongsToUser(_currentUserId);
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // REFRESH
+  // Called by pull-to-refresh and manual refresh button
+  // ═══════════════════════════════════════════════════════════
+  
+  Future<void> refresh() async {
+    print('🔄 [OWNER] Manual refresh triggered...');
+    
+    // ✅ Check approval status first
+    await _approvalService.checkApprovalStatus();
+    
+    // ✅ Then refresh apartments
+    await fetchApartments();
+    
+    print('✅ [OWNER] Refresh complete!');
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // CAN ADD APARTMENT
+  // ═══════════════════════════════════════════════════════════
+  
+  bool canAddApartment() {
+    if (!_approvalService.isApproved.value) {
+      if (_approvalService.isPending) {
+        Get.snackbar(
+          'Approval Pending',
+          'Your owner account is pending approval. You cannot add apartments until approved.',
+          snackPosition: SnackPosition.TOP,
+          duration: const Duration(seconds: 4),
+          backgroundColor: const Color(0xFFF59E0B),
+          colorText: const Color(0xFFFFFFFF),
+          icon: const Icon(
+            Icons.schedule,
+            color: Color(0xFFFFFFFF),
+          ),
+        );
+      } else if (_approvalService.isRejected) {
+        _approvalService.showRejectionMessage();
+      }
+      return false;
+    }
+    return true;
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // CAN ACCESS FAVORITES
+  // ═══════════════════════════════════════════════════════════
+  
+  bool canAccessFavorites() {
+    if (!_approvalService.isApproved.value) {
+      if (_approvalService.isPending) {
+        _approvalService.showPendingApprovalMessage();
+      } else if (_approvalService.isRejected) {
+        _approvalService.showRejectionMessage();
+      }
+      return false;
+    }
+    return true;
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // CAN ACCESS CHAT
+  // ═══════════════════════════════════════════════════════════
+  
+  bool canAccessChat() {
+    if (!_approvalService.isApproved.value) {
+      if (_approvalService.isPending) {
+        _approvalService.showPendingApprovalMessage();
+      } else if (_approvalService.isRejected) {
+        _approvalService.showRejectionMessage();
+      }
+      return false;
+    }
+    return true;
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // CAN ACCESS PENDING REQUESTS
+  // ═══════════════════════════════════════════════════════════
+  
+  bool canAccessPendingRequests() {
+    if (!_approvalService.isApproved.value) {
+      if (_approvalService.isPending) {
+        _approvalService.showPendingApprovalMessage();
+      } else if (_approvalService.isRejected) {
+        _approvalService.showRejectionMessage();
+      }
+      return false;
+    }
+    return true;
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // FILTER BY GOVERNORATE AND SEARCH
+  // ═══════════════════════════════════════════════════════════
+  
+  List<ApartmentModel> get filteredApartments {
+    if (selectedGovernorate.value.isEmpty && searchQuery.value.isEmpty) {
+      return apartments;
+    }
+
+    return apartments.where((apartment) {
+      final matchesGovernorate = selectedGovernorate.value.isEmpty ||
+          apartment.governorate
+              .toLowerCase()
+              .contains(selectedGovernorate.value.toLowerCase());
+
+      final matchesSearch = searchQuery.value.isEmpty ||
+          apartment.title
+              .toLowerCase()
+              .contains(searchQuery.value.toLowerCase()) ||
+          apartment.city
+              .toLowerCase()
+              .contains(searchQuery.value.toLowerCase());
+
+      return matchesGovernorate && matchesSearch;
+    }).toList();
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // SEARCH APARTMENTS
+  // ═══════════════════════════════════════════════════════════
+  
+  void searchApartments(String query) {
+    searchQuery.value = query;
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // FILTER BY GOVERNORATE
+  // ═══════════════════════════════════════════════════════════
+  
+  void filterByGovernorate(String governorate) {
+    selectedGovernorate.value = governorate;
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // CLEAR FILTERS
+  // ═══════════════════════════════════════════════════════════
+  
+  void clearFilters() {
+    selectedGovernorate.value = '';
+    searchQuery.value = '';
+  }
+
   @override
   void onClose() {
-    print('🏠 Owner Home Controller closed');
+    // Clean up
     super.onClose();
   }
 }

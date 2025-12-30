@@ -7,7 +7,7 @@ import 'dart:convert';
 
 
 class BookingService extends GetConnect {
-  final TokenStorageService _tokenStorage = Get.find<TokenStorageService>();
+  final TokenStorageService _tokenStorage = Get.put(TokenStorageService());
   @override
   final String baseUrl = '${BaseUrl.pubBaseUrl}/api'; 
 
