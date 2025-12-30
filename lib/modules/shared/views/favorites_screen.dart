@@ -9,7 +9,7 @@ import 'package:hommie/data/services/approval_status_service.dart';
 // ═══════════════════════════════════════════════════════════
 
 class FavoritesScreen extends StatelessWidget {
-   FavoritesScreen({super.key});
+   const FavoritesScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

@@ -4,7 +4,6 @@ import 'package:hommie/modules/owner/views/main_nav_view.dart';
 import 'package:hommie/modules/renter/views/home.dart';
 import 'package:hommie/modules/shared/views/welcomescreen.dart';
 
-import '../../owner/views/owner_home_screen.dart';
 class StartupscreenController extends GetxController {
   
   final box = GetStorage();

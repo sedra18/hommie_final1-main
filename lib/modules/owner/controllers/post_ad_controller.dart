@@ -1,70 +1,246 @@
-import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'dart:io';
 import 'package:get/get.dart';
-import 'package:hommie/app/utils/app_colors.dart';
-import 'package:hommie/data/models/apartment/owner_apartment_model.dart';
-import 'package:hommie/data/models/user/user_permission_controller.dart';
-import 'package:hommie/data/repositories/apartment_repository.dart';
-import 'package:hommie/modules/owner/views/apartment_form_view.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:get_storage/get_storage.dart';
+import 'package:hommie/data/models/apartment/apartment_model.dart';
+import 'package:hommie/helpers/base_url.dart';
+import 'package:http/http.dart' as http;
+import 'package:flutter/material.dart';
 
 // ═══════════════════════════════════════════════════════════
-// POST AD CONTROLLER - WITH LOAD AFTER PUBLISH
-// ✅ Calls repo.load() after successful publish
+// POST AD CONTROLLER - FULLY CORRECTED
+// Uses ApartmentModel (NOT OwnerApartmentModel)
 // ═══════════════════════════════════════════════════════════
 
 class PostAdController extends GetxController {
-  final ApartmentRepository repo;
-  PostAdController(this.repo);
-
-  final permissions = Get.find<UserPermissionsController>();
-
-  List<OwnerApartmentModel> get myApartments => repo.apartments;
-
-  OwnerApartmentModel? draft;
-
-  // ✅ Load apartments on init
+  // ✅ CORRECTED: Use ApartmentModel (not OwnerApartmentModel)
+  final myApartments = <ApartmentModel>[].obs;
+  
+  final isLoading = false.obs;
+  final isRefreshing = false.obs;
+  
+  final box = GetStorage();
+  
+  // ═══════════════════════════════════════════════════════════
+  // DRAFT DATA (for apartment creation form)
+  // ═══════════════════════════════════════════════════════════
+  
+  final RxMap<String, dynamic> draftData = <String, dynamic>{}.obs;
+  
   @override
   void onInit() {
     super.onInit();
-    load();
-  }
-
-  Future<void> load() async {
     print('');
     print('═══════════════════════════════════════════════════════════');
-    print('🔄 POST AD CONTROLLER - LOADING APARTMENTS');
-    await repo.load();
-    print('   Apartments loaded: ${myApartments.length}');
+    print('📝 POST AD CONTROLLER - INITIALIZING');
     print('═══════════════════════════════════════════════════════════');
+    fetchMyApartments();
   }
-
-  void startNewDraft() {
+  
+  // ═══════════════════════════════════════════════════════════
+  // FETCH MY APARTMENTS
+  // ═══════════════════════════════════════════════════════════
+  
+  Future<void> fetchMyApartments() async {
+    if (isLoading.value) {
+      print('⚠️  Already loading apartments');
+      return;
+    }
+    
+    isLoading.value = true;
+    
     print('');
     print('═══════════════════════════════════════════════════════════');
-    print('📝 STARTING NEW DRAFT');
+    print('📥 FETCHING MY APARTMENTS');
     print('═══════════════════════════════════════════════════════════');
     
-    draft = OwnerApartmentModel(
-      id: UniqueKey().toString(),
-      title: "",
-      description: "",
-      governorate: "",
-      city: "",
-      address: "",
-      pricePerDay: 0,
-      roomsCount: 1,
-      apartmentSize: 0,
-      images: [],
-      mainImage: null,
-    );
-    
-    print('✅ New draft created with ID: ${draft!.id}');
+    try {
+      final token = box.read('access_token');
+      
+      if (token == null) {
+        print('❌ No token found');
+        myApartments.clear();
+        return;
+      }
+      
+      final url = Uri.parse('${BaseUrl.pubBaseUrl}/owner/apartments');
+      print('   URL: $url');
+      
+      final response = await http.get(
+        url,
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      
+      print('   Status: ${response.statusCode}');
+      
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        
+        // Handle different response structures
+        List<dynamic> apartmentsJson = [];
+        
+        if (decoded is List) {
+          apartmentsJson = decoded;
+        } else if (decoded is Map) {
+          if (decoded['data'] is List) {
+            apartmentsJson = decoded['data'];
+          } else if (decoded['data'] is Map && decoded['data']['data'] is List) {
+            apartmentsJson = decoded['data']['data'];
+          }
+        }
+        
+        // ✅ CORRECTED: Parse as ApartmentModel (not OwnerApartmentModel)
+        myApartments.value = apartmentsJson
+            .map((json) {
+              try {
+                return ApartmentModel.fromJson(json);
+              } catch (e) {
+                print('   ⚠️  Failed to parse apartment: $e');
+                return null;
+              }
+            })
+            .whereType<ApartmentModel>()
+            .toList();
+        
+        print('');
+        print('✅ APARTMENTS LOADED:');
+        print('   My apartments: ${myApartments.length}');
+        
+        if (myApartments.isNotEmpty) {
+          print('   Apartment IDs: ${myApartments.map((a) => a.id).toList()}');
+        }
+        
+        print('═══════════════════════════════════════════════════════════');
+        
+      } else if (response.statusCode == 401) {
+        print('❌ Authentication failed');
+        print('═══════════════════════════════════════════════════════════');
+        
+        myApartments.clear();
+        
+        Get.snackbar(
+          'Authentication Error',
+          'Please login again',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+        
+      } else {
+        print('❌ Failed with status ${response.statusCode}');
+        print('   Response: ${response.body}');
+        print('═══════════════════════════════════════════════════════════');
+        
+        myApartments.clear();
+      }
+      
+    } catch (e) {
+      print('');
+      print('❌ ERROR FETCHING APARTMENTS');
+      print('   Error: $e');
+      print('═══════════════════════════════════════════════════════════');
+      
+      myApartments.clear();
+      
+      Get.snackbar(
+        'Error',
+        'Failed to load apartments',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    } finally {
+      isLoading.value = false;
+    }
   }
-
+  
   // ═══════════════════════════════════════════════════════════
-  // SAVE BASIC INFO
+  // REFRESH
   // ═══════════════════════════════════════════════════════════
-  Future<void> saveDraftBasicInfo({
+  
+  Future<void> refresh() async {
+    if (isRefreshing.value) return;
+    
+    isRefreshing.value = true;
+    
+    print('');
+    print('🔄 REFRESHING MY APARTMENTS...');
+    
+    try {
+      await fetchMyApartments();
+      print('✅ Refresh complete');
+      
+    } catch (e) {
+      print('❌ Refresh failed: $e');
+    } finally {
+      isRefreshing.value = false;
+    }
+  }
+  
+  // ═══════════════════════════════════════════════════════════
+  // DELETE APARTMENT
+  // ═══════════════════════════════════════════════════════════
+  
+  Future<void> deleteApartment(String apartmentId) async {
+    print('');
+    print('═══════════════════════════════════════════════════════════');
+    print('🗑️  DELETING APARTMENT: $apartmentId');
+    print('═══════════════════════════════════════════════════════════');
+    
+    try {
+      final token = box.read('access_token');
+      
+      if (token == null) {
+        throw Exception('No authentication token');
+      }
+      
+      final url = Uri.parse('${BaseUrl.pubBaseUrl}/owner/apartments/$apartmentId');
+      print('   URL: $url');
+      
+      final response = await http.delete(
+        url,
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      
+      print('   Status: ${response.statusCode}');
+      
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        print('✅ Apartment deleted successfully');
+        
+        // Remove from list
+        myApartments.removeWhere((apt) => apt.id.toString() == apartmentId);
+        
+        print('   Remaining apartments: ${myApartments.length}');
+        print('═══════════════════════════════════════════════════════════');
+        
+      } else {
+        print('❌ Failed with status ${response.statusCode}');
+        print('   Response: ${response.body}');
+        print('═══════════════════════════════════════════════════════════');
+        
+        throw Exception('Failed to delete apartment: ${response.statusCode}');
+      }
+      
+    } catch (e) {
+      print('');
+      print('❌ ERROR DELETING APARTMENT');
+      print('   Error: $e');
+      print('═══════════════════════════════════════════════════════════');
+      
+      rethrow;
+    }
+  }
+  
+  // ═══════════════════════════════════════════════════════════
+  // DRAFT MANAGEMENT METHODS
+  // ═══════════════════════════════════════════════════════════
+  
+  /// Save basic apartment info to draft
+  void saveDraftBasicInfo({
     required String title,
     required String description,
     required String governorate,
@@ -73,224 +249,201 @@ class PostAdController extends GetxController {
     required double pricePerDay,
     required int roomsCount,
     required double apartmentSize,
-  }) async {
-    if (draft == null) startNewDraft();
-    
+  }) {
     print('');
-    print('📋 Saving basic info to draft:');
+    print('═══════════════════════════════════════════════════════════');
+    print('💾 SAVING DRAFT BASIC INFO');
+    print('──────────────────────────────────────────────────────────');
     print('   Title: $title');
-    print('   Governorate: $governorate');
-    print('   City: $city');
-    print('   Address: $address');
+    print('   Description: ${description.length} chars');
+    print('   Location: $city, $governorate');
     print('   Price: \$$pricePerDay/day');
     print('   Rooms: $roomsCount');
-    print('   Size: ${apartmentSize}m²');
+    print('   Size: $apartmentSize m²');
+    print('═══════════════════════════════════════════════════════════');
     
-    draft!
-      ..title = title
-      ..description = description
-      ..governorate = governorate
-      ..city = city
-      ..address = address
-      ..pricePerDay = pricePerDay
-      ..roomsCount = roomsCount
-      ..apartmentSize = apartmentSize;
-      
-    print('✅ Basic info saved to draft');
+    draftData.value = {
+      'title': title,
+      'description': description,
+      'governorate': governorate,
+      'city': city,
+      'address': address,
+      'pricePerDay': pricePerDay,
+      'roomsCount': roomsCount,
+      'apartmentSize': apartmentSize,
+    };
+    
+    print('✅ Draft basic info saved');
   }
-
-  // ═══════════════════════════════════════════════════════════
-  // SAVE IMAGES FROM FILES
-  // ═══════════════════════════════════════════════════════════
-  Future<void> saveDraftImagesFromFiles({
-    required List<XFile> imageFiles,
-    XFile? mainImageFile,
-  }) async {
-    if (draft == null) {
-      print('⚠️  No draft found, creating new one');
-      startNewDraft();
-    }
-
+  
+  /// Save apartment images to draft (from file paths)
+  Future<void> saveDraftImagesFromFiles(List<String> imagePaths) async {
     print('');
     print('═══════════════════════════════════════════════════════════');
-    print('📸 SAVING IMAGES FROM FILES');
-    print('═══════════════════════════════════════════════════════════');
-    print('   Total images: ${imageFiles.length}');
-    print('   Has main image: ${mainImageFile != null}');
-
-    // Convert XFile paths to image URLs/paths for storage
-    List<String> imagePaths = imageFiles.map((file) => file.path).toList();
-    String? mainImagePath = mainImageFile?.path;
-
-    draft!
-      ..images = imagePaths
-      ..mainImage = mainImagePath ?? (imagePaths.isNotEmpty ? imagePaths.first : null);
-
-    print('✅ Images saved:');
-    print('   Image paths: $imagePaths');
-    print('   Main image path: ${draft!.mainImage}');
-    print('═══════════════════════════════════════════════════════════');
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // PUBLISH DRAFT (WITH PERMISSION CHECK + RELOAD)
-  // ═══════════════════════════════════════════════════════════
-  Future<void> publishDraft() async {
-    if (draft == null) {
-      print('⚠️  No draft to publish');
-      Get.snackbar(
-        'خطأ',
-        'لا يوجد مسودة للنشر',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
-      return;
-    }
-
-    print('');
-    print('═══════════════════════════════════════════════════════════');
-    print('🚀 PUBLISHING DRAFT');
-    print('═══════════════════════════════════════════════════════════');
-    print('   Title: ${draft!.title}');
-    print('   Price: \$${draft!.pricePerDay}/day');
-    print('   Location: ${draft!.governorate}, ${draft!.city}');
-    print('   Images: ${draft!.images.length}');
+    print('💾 SAVING DRAFT IMAGES FROM FILES');
     print('──────────────────────────────────────────────────────────');
-
-    // CHECK PERMISSION FIRST
-    if (!permissions.checkPermission('post', showMessage: true)) {
-      print('❌ Publish denied - User not approved');
-      print('   Is Approved: ${permissions.isApproved.value}');
-      print('   Role: ${permissions.userRole.value}');
-      print('═══════════════════════════════════════════════════════════');
-      return;
+    print('   Number of images: ${imagePaths.length}');
+    
+    for (var i = 0; i < imagePaths.length; i++) {
+      print('   ${i + 1}. ${imagePaths[i]}');
     }
-
-    print('✅ Permission granted - Publishing apartment');
-
+    
+    print('═══════════════════════════════════════════════════════════');
+    
+    draftData['imagePaths'] = imagePaths;
+    
+    print('✅ Draft images saved');
+  }
+  
+  /// Publish the draft apartment
+  Future<void> publishDraft() async {
+    print('');
+    print('═══════════════════════════════════════════════════════════');
+    print('📤 PUBLISHING DRAFT APARTMENT');
+    print('═══════════════════════════════════════════════════════════');
+    
     try {
-      // ✅ Add to repository (this calls api.create() internally)
-      await repo.add(draft!);
+      final token = box.read('access_token');
       
-      print('');
-      print('✅ APARTMENT PUBLISHED SUCCESSFULLY');
-      print('   Apartment ID: ${draft!.id}');
-      print('──────────────────────────────────────────────────────────');
-      
-      // ✅ The repo.add() already calls load(), so apartments should be updated
-      print('   Total apartments in repo: ${myApartments.length}');
-      
-      // Print apartment titles for verification
-      if (myApartments.isNotEmpty) {
-        print('   Apartments in list:');
-        for (var apt in myApartments) {
-          print('      - ${apt.title} (\$${apt.pricePerDay}/day)');
-        }
-      } else {
-        print('   ⚠️  WARNING: No apartments in list after publish!');
-        print('   Attempting manual reload...');
-        await repo.load();
-        print('   After manual reload: ${myApartments.length} apartments');
+      if (token == null) {
+        throw Exception('No authentication token');
       }
       
-      print('═══════════════════════════════════════════════════════════');
+      // Validate draft data
+      if (draftData['title'] == null || draftData['title'].toString().isEmpty) {
+        throw Exception('Missing title');
+      }
       
-      // Clear draft after successful publish
-      final publishedTitle = draft!.title;
-      draft = null;
+      if (draftData['imagePaths'] == null || 
+          (draftData['imagePaths'] as List).isEmpty) {
+        throw Exception('Missing images');
+      }
       
-      // NOTE: Don't show snackbar here - let the view handle it after navigation
+      print('──────────────────────────────────────────────────────────');
+      print('📋 DRAFT DATA:');
+      print('   Title: ${draftData['title']}');
+      print('   Description: ${draftData['description']}');
+      print('   Location: ${draftData['city']}, ${draftData['governorate']}');
+      print('   Price: \$${draftData['pricePerDay']}/day');
+      print('   Images: ${(draftData['imagePaths'] as List).length}');
+      print('──────────────────────────────────────────────────────────');
+      
+      // Create multipart request
+      final url = Uri.parse('${BaseUrl.pubBaseUrl}/owner/apartments');
+      print('   URL: $url');
+      
+      var request = http.MultipartRequest('POST', url);
+      
+      // Add headers
+      request.headers.addAll({
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
+      
+      // Add text fields
+      request.fields['title'] = draftData['title'].toString();
+      request.fields['description'] = draftData['description'].toString();
+      request.fields['governorate'] = draftData['governorate'].toString();
+      request.fields['city'] = draftData['city'].toString();
+      request.fields['address'] = draftData['address'].toString();
+      request.fields['price_per_day'] = draftData['pricePerDay'].toString();
+      request.fields['rooms_count'] = draftData['roomsCount'].toString();
+      request.fields['apartment_size'] = draftData['apartmentSize'].toString();
+      
+      // Add images
+      final imagePaths = draftData['imagePaths'] as List<String>;
+      
+      print('📷 Adding images to request...');
+      for (var i = 0; i < imagePaths.length; i++) {
+        final imagePath = imagePaths[i];
+        final file = File(imagePath);
+        
+        if (await file.exists()) {
+          final multipartFile = await http.MultipartFile.fromPath(
+            'images[]',  // Use 'images[]' for array of images
+            imagePath,
+          );
+          
+          request.files.add(multipartFile);
+          print('   ✓ Added image ${i + 1}: ${file.path.split('/').last}');
+        } else {
+          print('   ⚠️  Image not found: $imagePath');
+        }
+      }
+      
+      print('──────────────────────────────────────────────────────────');
+      print('📤 Sending request...');
+      
+      // Send request
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      
+      print('   Status: ${response.statusCode}');
+      print('   Response: ${response.body}');
+      
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        print('');
+        print('✅ APARTMENT PUBLISHED SUCCESSFULLY');
+        print('═══════════════════════════════════════════════════════════');
+        
+        // Clear draft
+        draftData.clear();
+        
+        // Reload apartments list
+        await fetchMyApartments();
+        
+      } else {
+        print('');
+        print('❌ PUBLISH FAILED');
+        print('   Status: ${response.statusCode}');
+        print('   Response: ${response.body}');
+        print('═══════════════════════════════════════════════════════════');
+        
+        throw Exception('Failed to publish: ${response.statusCode}');
+      }
       
     } catch (e) {
       print('');
-      print('❌ PUBLISH FAILED');
+      print('❌ ERROR PUBLISHING APARTMENT');
       print('   Error: $e');
       print('═══════════════════════════════════════════════════════════');
-      
-      Get.snackbar(
-        '❌ خطأ',
-        'فشل نشر الشقة: $e',
-        backgroundColor: AppColors.failure,
-        colorText: AppColors.backgroundLight,
-        duration: const Duration(seconds: 3),
-      );
       
       rethrow;
     }
   }
-
-  // ═══════════════════════════════════════════════════════════
-  // DELETE APARTMENT
-  // ═══════════════════════════════════════════════════════════
-  Future<void> deleteApartment(String id) async {
+  
+  /// Cancel draft and clear data
+  void cancelDraft() {
     print('');
-    print('🗑️  Deleting apartment: $id');
+    print('❌ DRAFT CANCELLED');
+    print('   Clearing draft data...');
     
-    await repo.remove(id);
+    draftData.clear();
     
-    print('✅ Apartment deleted');
-    print('   Remaining apartments: ${myApartments.length}');
-    
-    Get.snackbar(
-      'تم الحذف',
-      'تم حذف الشقة بنجاح',
-      backgroundColor: Colors.orange,
-      colorText: Colors.white,
-    );
+    print('✅ Draft data cleared');
   }
-
+  
   // ═══════════════════════════════════════════════════════════
-  // UPDATE APARTMENT
+  // NAVIGATE TO ADD APARTMENT
   // ═══════════════════════════════════════════════════════════
-  Future<void> updateApartment(OwnerApartmentModel apt) async {
-    print('');
-    print('📝 Updating apartment: ${apt.title}');
-    
-    await repo.edit(apt);
-    
-    print('✅ Apartment updated');
-    
-    Get.snackbar(
-      'تم التحديث',
-      'تم تحديث الشقة بنجاح',
-      backgroundColor: Colors.blue,
-      colorText: Colors.white,
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // NAVIGATION HELPER WITH PERMISSION CHECK
-  // ═══════════════════════════════════════════════════════════
+  
   void onAddApartmentPressed() {
     print('');
-    print('═══════════════════════════════════════════════════════════');
-    print('➕ ADD APARTMENT BUTTON PRESSED');
-    print('──────────────────────────────────────────────────────────');
-
-    // CHECK PERMISSION FIRST
-    if (!permissions.checkPermission('post', showMessage: true)) {
-      print('❌ Add apartment denied - User not approved');
-      print('   Is Approved: ${permissions.isApproved.value}');
-      print('   Role: ${permissions.userRole.value}');
-      print('═══════════════════════════════════════════════════════════');
-      return;
-    }
-
-    print('✅ Permission granted - Opening apartment form');
-    print('═══════════════════════════════════════════════════════════');
+    print('➕ Navigate to add apartment form');
     
-    // Create new draft
-    startNewDraft();
+    // Clear any existing draft
+    cancelDraft();
     
-    // Navigate to ApartmentFormView
-    Get.to(() => const ApartmentFormView(
-      isEdit: false,
-      editingApartment: null,
-    ));
+    // TODO: Replace with your actual route
+    Get.toNamed('/apartment-form');
+    
+    // OR if using direct navigation:
+    // Get.to(() => ApartmentFormScreen());
   }
-
-  // ═══════════════════════════════════════════════════════════
-  // GETTER FOR UI
-  // ═══════════════════════════════════════════════════════════
-  bool get canAddApartment => permissions.canPostApartments;
+  
+  @override
+  void onClose() {
+    print('📝 Post Ad Controller closed');
+    super.onClose();
+  }
 }

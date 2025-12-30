@@ -6,7 +6,6 @@ import '../../../data/models/signup/signup_step4_model.dart';
 import '../../../data/services/signup_step4_service.dart';
 import 'package:hommie/modules/renter/views/home.dart';
 
-import '../../owner/views/owner_home_screen.dart';
 
 class SignupStep4Controller extends GetxController {
   late final int pendingUserId;

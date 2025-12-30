@@ -5,10 +5,6 @@ import 'package:hommie/app/utils/app_colors.dart';
 import 'package:hommie/widgets/pending_approval_widget.dart';
 import 'package:hommie/data/services/approval_status_service.dart';
 
-// ═══════════════════════════════════════════════════════════
-// OWNER PROFILE SCREEN - WITH APPROVAL CHECK AND LOGOUT
-// ═══════════════════════════════════════════════════════════
-
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
@@ -22,9 +18,8 @@ class ProfileScreen extends StatelessWidget {
         title: const Text("Profile"),
         backgroundColor: AppColors.primary,
       ),
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.backgroundLight,
       body: Obx(() {
-        // ✅ Check approval status
         if (!approvalService.isApproved.value) {
           return PendingApprovalWidget(
             onRefresh: () => approvalService.manualRefresh(),
@@ -46,22 +41,15 @@ class ProfileScreen extends StatelessWidget {
           CircleAvatar(
             radius: 60,
             backgroundColor: AppColors.primary.withOpacity(0.2),
-            child: Icon(
-              Icons.person,
-              size: 60,
-              color: AppColors.primary,
-            ),
+            child: Icon(Icons.person, size: 60, color: AppColors.primary),
           ),
 
           const SizedBox(height: 16),
 
           // Name
           const Text(
-            'اسم المالك',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
+            'UserName',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
 
           const SizedBox(height: 8),
@@ -69,10 +57,7 @@ class ProfileScreen extends StatelessWidget {
           // Email
           const Text(
             'owner@example.com',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey,
-            ),
+            style: TextStyle(fontSize: 16, color: Colors.grey),
           ),
 
           const SizedBox(height: 24),
@@ -81,19 +66,19 @@ class ProfileScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.green.shade50,
+              color: AppColors.backgroundLight,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.green, width: 2),
+              border: Border.all(color: AppColors.success, width: 2),
             ),
             child: const Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.verified, color: Colors.green, size: 20),
+                Icon(Icons.verified, color: AppColors.success, size: 20),
                 SizedBox(width: 8),
                 Text(
-                  'حساب موثق',
+                  'Verified account',
                   style: TextStyle(
-                    color: Colors.green,
+                    color: AppColors.success,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -106,9 +91,12 @@ class ProfileScreen extends StatelessWidget {
           // Profile Options
           _buildProfileOption(
             icon: Icons.edit,
-            title: 'تعديل الملف الشخصي',
+            title: 'Edit personal information',
             onTap: () {
-              Get.snackbar('قريباً', 'ميزة تعديل الملف الشخصي قيد التطوير');
+              Get.snackbar(
+                'Soon',
+                'Editing the personal information feature will be soon added',
+              );
             },
           ),
 
@@ -116,9 +104,12 @@ class ProfileScreen extends StatelessWidget {
 
           _buildProfileOption(
             icon: Icons.lock,
-            title: 'تغيير كلمة المرور',
+            title: 'Change password',
             onTap: () {
-              Get.snackbar('قريباً', 'ميزة تغيير كلمة المرور قيد التطوير');
+              Get.snackbar(
+                'Soon',
+                'Editing the password feature will be soon added',
+              );
             },
           ),
 
@@ -126,9 +117,9 @@ class ProfileScreen extends StatelessWidget {
 
           _buildProfileOption(
             icon: Icons.notifications,
-            title: 'الإشعارات',
+            title: 'Notifications',
             onTap: () {
-              Get.snackbar('قريباً', 'إعدادات الإشعارات قيد التطوير');
+              Get.snackbar('Soon', 'Informations feature will be soon added');
             },
           ),
 
@@ -136,36 +127,38 @@ class ProfileScreen extends StatelessWidget {
 
           _buildProfileOption(
             icon: Icons.help,
-            title: 'المساعدة والدعم',
+            title: 'Help center',
             onTap: () {
-              Get.snackbar('قريباً', 'صفحة المساعدة قيد التطوير');
+              Get.snackbar('Soon', 'Helping center will be added soon');
             },
           ),
 
           const Divider(),
 
           // ✅ Logout with loading state
-          Obx(() => _buildProfileOption(
-                icon: Icons.logout,
-                title: logoutController.isLoggingOut.value
-                    ? 'جاري تسجيل الخروج...'
-                    : 'تسجيل الخروج',
-                titleColor: Colors.red,
-                iconColor: Colors.red,
-                onTap: logoutController.isLoggingOut.value
-                    ? () {} // Disabled when logging out
-                    : logoutController.handleLogout,
-                trailing: logoutController.isLoggingOut.value
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.red,
-                        ),
-                      )
-                    : null,
-              )),
+          Obx(
+            () => _buildProfileOption(
+              icon: Icons.logout,
+              title: logoutController.isLoggingOut.value
+                  ? 'Logging out now...'
+                  : 'Log out',
+              titleColor: AppColors.failure,
+              iconColor: AppColors.failure,
+              onTap: logoutController.isLoggingOut.value
+                  ? () {} // Disabled when logging out
+                  : logoutController.handleLogout,
+              trailing: logoutController.isLoggingOut.value
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.failure,
+                      ),
+                    )
+                  : null,
+            ),
+          ),
 
           const SizedBox(height: 24),
         ],
@@ -183,13 +176,7 @@ class ProfileScreen extends StatelessWidget {
   }) {
     return ListTile(
       leading: Icon(icon, color: iconColor ?? AppColors.primary),
-      title: Text(
-        title,
-        style: TextStyle(
-          fontSize: 16,
-          color: titleColor,
-        ),
-      ),
+      title: Text(title, style: TextStyle(fontSize: 16, color: titleColor)),
       trailing: trailing ?? const Icon(Icons.chevron_right),
       onTap: onTap,
     );

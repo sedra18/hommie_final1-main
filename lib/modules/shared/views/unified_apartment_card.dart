@@ -1,37 +1,76 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:hommie/app/utils/app_colors.dart';
 import 'package:hommie/data/models/apartment/apartment_model.dart';
 import 'package:hommie/data/services/apartments_service.dart';
-import 'package:hommie/modules/owner/controllers/owner_home_controller.dart';
+import 'package:hommie/modules/owner/controllers/post_ad_controller.dart';
 
 // ═══════════════════════════════════════════════════════════
-// APARTMENT CARD
-// Universal card for both owner and renter
-// Uses isMyApartment parameter passed from parent
+// UNIFIED APARTMENT CARD - FIXED
+// ✅ Checks ownership directly without service method
+// ✅ Works with userId field (most common)
 // ═══════════════════════════════════════════════════════════
 
-class ApartmentCard extends StatelessWidget {
+class UnifiedApartmentCard extends StatelessWidget {
   final ApartmentModel apartment;
-  final bool isMyApartment;  // ← Passed from parent!
-  final bool showOwnerActions;
   final VoidCallback? onTap;
+  final bool showOwnerActions;
 
-  const ApartmentCard({
+  const UnifiedApartmentCard({
     super.key,
     required this.apartment,
-    required this.isMyApartment,  // ← Required!
-    this.showOwnerActions = false,
     this.onTap,
+    this.showOwnerActions = true,
   });
+
+  // ═══════════════════════════════════════════════════════════
+  // CHECK IF THIS IS MY APARTMENT
+  // ═══════════════════════════════════════════════════════════
+  
+  bool _isMyApartment() {
+    try {
+      final box = GetStorage();
+      final currentUserId = box.read('userId');
+      
+      // Debug
+      print('🔍 Checking ownership:');
+      print('   Current user ID: $currentUserId');
+      print('   Apartment owner ID: ${apartment.userId}');
+      
+      if (currentUserId == null) {
+        print('   ❌ No current user ID');
+        return false;
+      }
+      
+      if (apartment.userId == null) {
+        print('   ⚠️  Apartment has no userId field');
+        return false;
+      }
+      
+      // Compare as integers
+      final currentUserIdInt = int.tryParse(currentUserId.toString()) ?? 0;
+      final apartmentUserIdInt = apartment.userId ?? 0;
+      
+      final isOwned = currentUserIdInt == apartmentUserIdInt;
+      print('   Result: ${isOwned ? "✅ MY APARTMENT" : "❌ Not mine"}');
+      
+      return isOwned;
+      
+    } catch (e) {
+      print('❌ Error checking ownership: $e');
+      return false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final isMyApartment = _isMyApartment();
+    
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        // Blue border for my apartments
         side: isMyApartment 
             ? BorderSide(color: AppColors.primary, width: 2)
             : BorderSide.none,
@@ -43,15 +82,12 @@ class ApartmentCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ═════════════════════════════════════════════════════
-            // IMAGE SECTION
-            // ═════════════════════════════════════════════════════
-            
+            // Image Section with Badge
             Stack(
               children: [
                 _buildImageSection(),
                 
-                // "My Apartment" Badge (top-left)
+                // "My Apartment" Badge
                 if (isMyApartment)
                   Positioned(
                     top: 12,
@@ -93,61 +129,22 @@ class ApartmentCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                
-                // Rating Badge (top-right)
-                if (apartment.avgRating > 0)
-                  Positioned(
-                    top: 12,
-                    right: 12,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.amber,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.star,
-                            size: 14,
-                            color: Colors.white,
-                          ),
-                          const SizedBox(width: 2),
-                          Text(
-                            apartment.avgRating.toStringAsFixed(1),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
               ],
             ),
             
-            // ═════════════════════════════════════════════════════
-            // CONTENT SECTION
-            // ═════════════════════════════════════════════════════
-            
+            // Content Section
             Padding(
               padding: const EdgeInsets.all(12.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Title and Owner Actions Row
+                  // Title and Actions Row
                   Row(
                     children: [
                       // Title
                       Expanded(
                         child: Text(
-                          apartment.title,
+                          apartment.title ?? 'Untitled',
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -157,7 +154,7 @@ class ApartmentCard extends StatelessWidget {
                         ),
                       ),
                       
-                      // Edit & Delete buttons (only for my apartments)
+                      // Owner Actions (Edit & Delete) - Only for my apartments
                       if (isMyApartment && showOwnerActions) ...[
                         const SizedBox(width: 8),
                         _buildOwnerActions(context),
@@ -178,7 +175,7 @@ class ApartmentCard extends StatelessWidget {
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
-                          '${apartment.city} - ${apartment.governorate}',
+                          '${apartment.city ?? ''} - ${apartment.governorate ?? ''}',
                           style: TextStyle(
                             fontSize: 14,
                             color: Colors.grey.shade600,
@@ -190,20 +187,40 @@ class ApartmentCard extends StatelessWidget {
                     ],
                   ),
                   
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   
-                  // Details Row (Rooms + Size)
+                  // Description
+                  if (apartment.description != null) ...[
+                    Text(
+                      apartment.description!,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade700,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  
+                  // Details Row
                   Row(
                     children: [
-                      _buildDetailChip(
-                        icon: Icons.bed,
-                        label: '${apartment.roomsCount} Rooms',
-                      ),
+                      // Rooms
+                      if (apartment.roomsCount != null)
+                        _buildDetailChip(
+                          icon: Icons.bed,
+                          label: '${apartment.roomsCount} Rooms',
+                        ),
+                      
                       const SizedBox(width: 8),
-                      _buildDetailChip(
-                        icon: Icons.square_foot,
-                        label: '${apartment.apartmentSize} m²',
-                      ),
+                      
+                      // Size
+                      if (apartment.apartmentSize != null)
+                        _buildDetailChip(
+                          icon: Icons.square_foot,
+                          label: '${apartment.apartmentSize?.toInt()} m²',
+                        ),
                     ],
                   ),
                   
@@ -214,27 +231,16 @@ class ApartmentCard extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       // Price
-                      Row(
-                        children: [
-                          Text(
-                            '\$${apartment.pricePerDay.toInt()}',
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                          Text(
-                            ' / day',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                        ],
+                      Text(
+                        '\$${apartment.pricePerDay?.toInt() ?? 0} / day',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
+                        ),
                       ),
                       
-                      // "Cannot Book" badge (for my apartments)
+                      // "Cannot Book" indicator for my apartments
                       if (isMyApartment)
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -335,7 +341,6 @@ class ApartmentCard extends StatelessWidget {
   void _handleEdit(BuildContext context) {
     print('✏️ Edit apartment: ${apartment.title} (ID: ${apartment.id})');
     
-    // TODO: Navigate to edit screen
     Get.snackbar(
       'Edit',
       'Edit feature coming soon...',
@@ -347,13 +352,13 @@ class ApartmentCard extends StatelessWidget {
   }
 
   void _handleDelete(BuildContext context) {
-    print('🗑️ Delete requested: ${apartment.title} (ID: ${apartment.id})');
+    print('🗑️ Delete requested for: ${apartment.title} (ID: ${apartment.id})');
     
     Get.dialog(
       AlertDialog(
-        title: const Text('Delete Apartment'),
+        title: const Text('Confirm Delete'),
         content: Text(
-          'Are you sure you want to delete "${apartment.title}"?\n\nThis action cannot be undone.',
+          'Are you sure you want to delete "${apartment.title}"?\nThis action cannot be undone.',
         ),
         actions: [
           TextButton(
@@ -368,24 +373,11 @@ class ApartmentCard extends StatelessWidget {
               Get.back();
               print('✅ Delete confirmed');
               
-              // Show loading
-              Get.dialog(
-                const Center(
-                  child: CircularProgressIndicator(),
-                ),
-                barrierDismissible: false,
-              );
-              
               try {
-                // Get controller and delete
-                final controller = Get.find<OwnerHomeController>();
-                await controller.deleteApartment(apartment.id);
-                
-                Get.back(); // Close loading
-                
+                final controller = Get.find<PostAdController>();
+                await controller.deleteApartment(apartment.id.toString());
               } catch (e) {
-                Get.back(); // Close loading
-                print('❌ Error: $e');
+                print('❌ Error deleting apartment: $e');
               }
             },
             style: ElevatedButton.styleFrom(
@@ -404,13 +396,13 @@ class ApartmentCard extends StatelessWidget {
   // ═══════════════════════════════════════════════════════════
   
   Widget _buildImageSection() {
-    final imageUrl = apartment.mainImage.isNotEmpty
-        ? apartment.mainImage
+    final imageUrl = apartment.mainImage != null
+        ? ApartmentsService.getCleanImageUrl(apartment.mainImage!)
         : null;
     
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-      child: imageUrl != null
+      child: imageUrl != null && imageUrl.isNotEmpty
           ? Image.network(
               imageUrl,
               height: 200,

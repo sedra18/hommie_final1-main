@@ -6,7 +6,7 @@ import 'package:hommie/data/models/user/user_permission_controller.dart';
 import 'package:hommie/data/services/signup_step2_service.dart';
 import 'package:hommie/data/services/auth_service.dart';
 import 'package:hommie/modules/auth/views/signup_step3.dart';
-  // You need this screen
+// You need this screen
 
 // ═══════════════════════════════════════════════════════════
 // SIGNUP STEP 2 CONTROLLER - COMPLETE FLOW
@@ -26,21 +26,21 @@ class SignupStep2Controller extends GetxController {
   String? phoneNumber;
 
   final SignupStep2Service step2Service = Get.put(SignupStep2Service());
-  final authService = Get.find<AuthService>();
-  final permissions = Get.find<UserPermissionsController>();
+  final authService = Get.put(AuthService());
+  final permissions = Get.put(UserPermissionsController());
 
   @override
   void onInit() {
     super.onInit();
-    
+
     print('');
     print('═══════════════════════════════════════════════════════════');
     print('📝 SIGNUP STEP 2 CONTROLLER - INITIALIZING');
     print('──────────────────────────────────────────────────────────');
-    
+
     pendingUserId = Get.arguments['pendingUserId'];
     phoneNumber = Get.arguments['phoneNumber'] as String?;
-    
+
     print('✅ Pending User ID: $pendingUserId');
     if (phoneNumber != null) {
       print('✅ Phone Number: $phoneNumber');
@@ -56,7 +56,9 @@ class SignupStep2Controller extends GetxController {
 
   void selectRole(UserRole role) {
     selectedRole.value = role;
-    String roleString = selectedRole.value == UserRole.owner ? 'owner' : 'renter';
+    String roleString = selectedRole.value == UserRole.owner
+        ? 'owner'
+        : 'renter';
     print('👤 Role selected: $roleString');
   }
 
@@ -86,7 +88,9 @@ class SignupStep2Controller extends GetxController {
     print('   Pending User ID: $pendingUserId');
     print('   Email: ${emailController.text}');
     print('   Phone: ${phoneNumber ?? "Not available"}');
-    print('   Role: ${selectedRole.value == UserRole.owner ? "owner" : "renter"}');
+    print(
+      '   Role: ${selectedRole.value == UserRole.owner ? "owner" : "renter"}',
+    );
     print('──────────────────────────────────────────────────────────');
 
     final signupData = SignupStep2Model(
@@ -101,10 +105,10 @@ class SignupStep2Controller extends GetxController {
       // ═══════════════════════════════════════════════════════════
       // Call registerPage2 API
       // ═══════════════════════════════════════════════════════════
-      
+
       print('');
       print('📤 Calling registerPage2 API...');
-      
+
       final response = await step2Service.registerStep2(
         pendingUserId: pendingUserId,
         signupStep2Data: signupData,
@@ -120,31 +124,33 @@ class SignupStep2Controller extends GetxController {
       }
 
       print('✅ RegisterPage2 SUCCESS');
-      
+
       // ═══════════════════════════════════════════════════════════
       // Save role temporarily for later use
       // ═══════════════════════════════════════════════════════════
-      
-      final roleString = selectedRole.value == UserRole.owner ? 'owner' : 'renter';
+
+      final roleString = selectedRole.value == UserRole.owner
+          ? 'owner'
+          : 'renter';
       box.write('temp_signup_role', roleString);
-      
+
       print('');
       print('💾 Saved temporary role: $roleString');
       print('──────────────────────────────────────────────────────────');
-      
+
       // ═══════════════════════════════════════════════════════════
       // Navigate to Step 3 (Name & Date of Birth)
       // ═══════════════════════════════════════════════════════════
-      
+
       print('');
       print('➡️  Navigating to Step 3 (Name & DOB)...');
       print('═══════════════════════════════════════════════════════════');
-      
+
       await Future.delayed(const Duration(milliseconds: 300));
-      
+
       // Navigate to Step 3 screen
       Get.to(
-        () => const SignupStep3Screen(),  // You need to create this screen
+        () => const SignupStep3Screen(), // You need to create this screen
         arguments: {
           'pendingUserId': pendingUserId,
           'phoneNumber': phoneNumber,
@@ -152,11 +158,10 @@ class SignupStep2Controller extends GetxController {
           'role': roleString,
         },
       );
-      
     } catch (e) {
       isLoading.value = false;
       print('💥 Exception during step 2: $e');
-      
+
       if (e.toString().toLowerCase().contains('duplicate') ||
           e.toString().toLowerCase().contains('already exists')) {
         Get.snackbar(
@@ -166,12 +171,12 @@ class SignupStep2Controller extends GetxController {
           colorText: Colors.white,
           duration: const Duration(seconds: 4),
         );
-        
+
         await Future.delayed(const Duration(seconds: 2));
         Get.offAllNamed('/login');
       } else {
         Get.snackbar(
-          'Error', 
+          'Error',
           'Connection error. Please try again.',
           backgroundColor: Colors.red,
           colorText: Colors.white,
@@ -182,10 +187,10 @@ class SignupStep2Controller extends GetxController {
 
   void _handleError(String error) {
     print('❌ Error: $error');
-    
+
     final errorLower = error.toLowerCase();
-    
-    if (errorLower.contains('already') || 
+
+    if (errorLower.contains('already') ||
         errorLower.contains('exist') ||
         errorLower.contains('duplicate')) {
       Get.snackbar(
@@ -196,13 +201,13 @@ class SignupStep2Controller extends GetxController {
         duration: const Duration(seconds: 4),
         snackPosition: SnackPosition.TOP,
       );
-      
+
       Future.delayed(const Duration(seconds: 2), () {
         Get.offAllNamed('/login');
       });
     } else {
       Get.snackbar(
-        'Error', 
+        'Error',
         error,
         backgroundColor: Colors.red,
         colorText: Colors.white,

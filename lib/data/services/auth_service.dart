@@ -21,7 +21,7 @@ class UserResponseModel {
 class AuthService extends GetConnect {
   @override
   void onInit() {
-    httpClient.baseUrl = '${BaseUrl.pubBaseUrl}';
+    httpClient.baseUrl = BaseUrl.pubBaseUrl;
     httpClient.defaultContentType = 'application/json';
   }
 

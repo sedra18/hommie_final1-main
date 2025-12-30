@@ -5,10 +5,11 @@ import 'package:hommie/modules/owner/controllers/post_ad_controller.dart';
 import 'package:hommie/widgets/apartment_card.dart';
 import 'package:hommie/widgets/pending_approval_widget.dart';
 import 'package:hommie/data/services/approval_status_service.dart';
+import 'package:hommie/data/models/apartment/apartment_model.dart';  // ✅ Import correct model
 
 // ═══════════════════════════════════════════════════════════
-// OWNER POST AD SCREEN - SIMPLIFIED VERSION
-// Without edit/delete if ApartmentCard doesn't support them
+// OWNER POST AD SCREEN - FULLY FIXED
+// Uses ApartmentModel (not OwnerApartmentModel)
 // ═══════════════════════════════════════════════════════════
 
 class PostAdScreen extends StatefulWidget {
@@ -116,7 +117,8 @@ class _PostAdScreenState extends State<PostAdScreen>
         // My Apartments List
         Expanded(
           child: Obx(() {
-            final apartments = controller.myApartments;
+            // ✅ FIXED: Use ApartmentModel type
+            final List<ApartmentModel> apartments = controller.myApartments;
             
             if (apartments.isEmpty) {
               return Center(
@@ -159,14 +161,15 @@ class _PostAdScreenState extends State<PostAdScreen>
               itemCount: apartments.length,
               separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (_, index) {
-                final apartment = apartments[index];
+                // ✅ FIXED: ApartmentModel type
+                final ApartmentModel apartment = apartments[index];
                 
-                // ✅ Simple card with long-press menu
                 return GestureDetector(
                   onLongPress: () => _showApartmentMenu(context, apartment),
                   child: ApartmentCard(
                     apartment: apartment,
-                    showOwnerActions: false,
+                    isMyApartment: true,  // ✅ This is MY apartment
+                    showOwnerActions: false,  // Using long-press menu
                   ),
                 );
               },
@@ -178,7 +181,7 @@ class _PostAdScreenState extends State<PostAdScreen>
   }
 
   // ✅ Show menu on long press
-  void _showApartmentMenu(BuildContext context, apartment) {
+  void _showApartmentMenu(BuildContext context, ApartmentModel apartment) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -253,7 +256,7 @@ class _PostAdScreenState extends State<PostAdScreen>
   }
 
   // ✅ Confirm delete dialog
-  void _confirmDelete(apartment) {
+  void _confirmDelete(ApartmentModel apartment) {
     Get.dialog(
       AlertDialog(
         title: const Text('تأكيد الحذف'),
@@ -264,15 +267,37 @@ class _PostAdScreenState extends State<PostAdScreen>
             child: const Text('إلغاء'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Get.back();
-              controller.deleteApartment(apartment.id);
-              Get.snackbar(
-                'تم الحذف',
-                'تم حذف الشقة بنجاح',
-                backgroundColor: Colors.orange,
-                colorText: Colors.white,
+              
+              // Show loading
+              Get.dialog(
+                const Center(child: CircularProgressIndicator()),
+                barrierDismissible: false,
               );
+              
+              try {
+                await controller.deleteApartment(apartment.id.toString());
+                Get.back(); // Close loading
+                
+                Get.snackbar(
+                  'تم الحذف',
+                  'تم حذف الشقة بنجاح',
+                  backgroundColor: Colors.green,
+                  colorText: Colors.white,
+                  icon: const Icon(Icons.check, color: Colors.white),
+                );
+              } catch (e) {
+                Get.back(); // Close loading
+                
+                Get.snackbar(
+                  'خطأ',
+                  'فشل حذف الشقة',
+                  backgroundColor: Colors.red,
+                  colorText: Colors.white,
+                  icon: const Icon(Icons.error, color: Colors.white),
+                );
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,

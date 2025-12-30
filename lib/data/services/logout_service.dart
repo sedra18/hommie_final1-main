@@ -4,7 +4,7 @@ import 'package:hommie/helpers/base_url.dart';
 
 class LogoutService extends GetConnect {
   
-  final String _baseUrl = '${BaseUrl.pubBaseUrl}'; 
+  final String _baseUrl = BaseUrl.pubBaseUrl; 
   final box = GetStorage();
   
   @override

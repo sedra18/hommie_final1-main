@@ -10,7 +10,7 @@ class ApartmentDetailsScreen extends StatelessWidget {
   ApartmentDetailsScreen({super.key});
   
   // Permission controller for checking approval status
-  final permissions = Get.find<UserPermissionsController>();
+  final permissions = Get.put(UserPermissionsController());
 
   Widget _buildDetailIcon(IconData icon, String label, String value) {
     return Column(

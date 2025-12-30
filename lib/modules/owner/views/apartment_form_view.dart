@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:hommie/data/models/apartment/owner_apartment_model.dart';
+import 'package:hommie/data/models/apartment/apartment_model.dart';  // ✅ Changed
 import '../controllers/post_ad_controller.dart';
 import 'apartment_images_view.dart';
 
+// ═══════════════════════════════════════════════════════════
+// APARTMENT FORM VIEW - FIXED
+// Uses ApartmentModel (not OwnerApartmentModel)
+// ═══════════════════════════════════════════════════════════
 
 class ApartmentFormView extends StatefulWidget {
   final bool isEdit;
-  final OwnerApartmentModel? editingApartment;
+  final ApartmentModel? editingApartment;  // ✅ Changed type
 
   const ApartmentFormView({
     super.key,
@@ -27,15 +31,16 @@ class _ApartmentFormViewState extends State<ApartmentFormView> {
     'Hama',
     'Lattakia',
     'Tartus',
-    'Deir ez-Zur ',
+    'Deir ez-Zur',
     'Ar Raqqah',
     'Al Hasakah',
     'Idlib',
     'Daraa',
     'As Suwayda',
     'Al Qunaitra',
-    ' Qamishli',
+    'Qamishli',
   ];
+  
   final c = Get.find<PostAdController>();
   final titleC = TextEditingController();
   final descC = TextEditingController();
@@ -53,10 +58,10 @@ class _ApartmentFormViewState extends State<ApartmentFormView> {
     if (widget.isEdit && widget.editingApartment != null) {
       final a = widget.editingApartment!;
       titleC.text = a.title;
-      descC.text = a.description;
-      selectedGovernorate = a.governorate;
+      descC.text = a.description ?? '';  // ✅ Handle nullable
+      selectedGovernorate = a.governorate;  // Already nullable
       cityC.text = a.city;
-      addressC.text = a.address;
+      addressC.text = a.address ?? '';  // ✅ Handle nullable
       priceC.text = a.pricePerDay.toString();
       roomsC.text = a.roomsCount.toString();
       sizeC.text = a.apartmentSize.toString();
@@ -80,20 +85,22 @@ class _ApartmentFormViewState extends State<ApartmentFormView> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          widget.isEdit ? " Edit the apartment" : "Add info of the flat",
+          widget.isEdit ? "Edit the apartment" : "Add info of the flat",
         ),
+        backgroundColor: Colors.blue,
+        foregroundColor: Colors.white,
       ),
       body: ListView(
         padding: const EdgeInsets.all(12),
         children: [
           _field("Title", titleC),
           _field("Description", descC, maxLines: 3),
-      
 
+          // Governorate Dropdown
           Padding(
             padding: const EdgeInsets.only(bottom: 10),
             child: DropdownButtonFormField<String>(
-              initialValue: selectedGovernorate,
+              value: selectedGovernorate,
               hint: const Text("Choose the governorate"),
               decoration: const InputDecoration(
                 labelText: "Governorate",
@@ -117,40 +124,64 @@ class _ApartmentFormViewState extends State<ApartmentFormView> {
           _field("Address", addressC),
           _field("Price Per Day", priceC, keyboardType: TextInputType.number),
           _field("Rooms Count", roomsC, keyboardType: TextInputType.number),
-          _field("Apartment Size", sizeC, keyboardType: TextInputType.number),
-          const SizedBox(height: 16),
+          _field("Apartment Size (m²)", sizeC, keyboardType: TextInputType.number),
+          
+          const SizedBox(height: 24),
 
+          // Next Button
           SizedBox(
             height: 48,
-            child: ElevatedButton(
-              child: Text(
-                widget.isEdit ? "Next Edit photo " : "Next add photo",
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.arrow_forward),
+              label: Text(
+                widget.isEdit ? "Next: Edit photos" : "Next: Add photos",
+                style: const TextStyle(fontSize: 16),
               ),
-              onPressed: () async {
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () {
+                // Validate
+                if (titleC.text.trim().isEmpty) {
+                  Get.snackbar(
+                    'خطأ',
+                    'الرجاء إدخال عنوان الشقة',
+                    backgroundColor: Colors.red,
+                    colorText: Colors.white,
+                  );
+                  return;
+                }
+
                 final price = double.tryParse(priceC.text.trim()) ?? 0;
                 final rooms = int.tryParse(roomsC.text.trim()) ?? 1;
                 final size = double.tryParse(sizeC.text.trim()) ?? 0;
                 final gov = selectedGovernorate ?? "";
 
-                if (widget.isEdit && widget.editingApartment != null) {
-                  final a = widget.editingApartment!;
-                  a.title = titleC.text.trim();
-                  a.description = descC.text.trim();
-                  a.governorate = gov; //
-                  a.city = cityC.text.trim();
-                  a.address = addressC.text.trim();
-                  a.pricePerDay = price;
-                  a.roomsCount = rooms;
-                  a.apartmentSize = size;
-
-                  Get.to(
-                    () =>
-                        ApartmentImagesView(isEdit: true, editingApartment: a),
+                if (price <= 0) {
+                  Get.snackbar(
+                    'خطأ',
+                    'الرجاء إدخال سعر صحيح',
+                    backgroundColor: Colors.red,
+                    colorText: Colors.white,
                   );
                   return;
                 }
 
-                await c.saveDraftBasicInfo(
+                // Edit mode (not currently used in this flow)
+                if (widget.isEdit && widget.editingApartment != null) {
+                  // TODO: Implement edit functionality
+                  Get.snackbar(
+                    'قريباً',
+                    'ميزة التعديل قيد التطوير',
+                    backgroundColor: Colors.blue,
+                    colorText: Colors.white,
+                  );
+                  return;
+                }
+
+                // Save draft and navigate to images
+                c.saveDraftBasicInfo(
                   title: titleC.text.trim(),
                   description: descC.text.trim(),
                   governorate: gov,
@@ -160,6 +191,8 @@ class _ApartmentFormViewState extends State<ApartmentFormView> {
                   roomsCount: rooms,
                   apartmentSize: size,
                 );
+
+                // Navigate to images view
                 Get.to(() => const ApartmentImagesView(isEdit: false));
               },
             ),

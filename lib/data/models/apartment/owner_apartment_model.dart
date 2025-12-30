@@ -157,6 +157,6 @@ class OwnerApartmentModel {
 
   @override
   String toString() {
-    return 'OwnerApartmentModel(id: $id, title: $title, price: \$${pricePerDay}/day, rooms: $roomsCount, size: ${apartmentSize}m²)';
+    return 'OwnerApartmentModel(id: $id, title: $title, price: \$$pricePerDay/day, rooms: $roomsCount, size: ${apartmentSize}m²)';
   }
 }

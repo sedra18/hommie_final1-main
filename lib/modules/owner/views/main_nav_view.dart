@@ -18,7 +18,7 @@ class MainNavView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final nav = Get.find<NavController>();
+    final nav = Get.put(NavController());
 
     // All pages WITHOUT bottom nav bar
     final pages =  [

@@ -7,7 +7,6 @@ import 'package:hommie/data/models/user/user_permission_controller.dart';
 import 'package:hommie/data/services/auth_service.dart';
 import 'package:hommie/helpers/loading_helper.dart';
 import 'package:hommie/modules/owner/views/main_nav_view.dart';
-import 'package:hommie/modules/owner/views/owner_home_screen.dart';
 import 'package:hommie/modules/renter/views/home.dart';
 import 'package:hommie/modules/shared/views/empty_screen.dart';
 

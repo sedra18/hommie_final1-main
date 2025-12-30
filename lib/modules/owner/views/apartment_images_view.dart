@@ -1,20 +1,18 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:hommie/data/models/apartment/owner_apartment_model.dart';
+import 'package:hommie/data/models/apartment/apartment_model.dart';  // ✅ Changed
 import 'package:image_picker/image_picker.dart';
-import 'dart:typed_data';
 import '../controllers/post_ad_controller.dart';
 
 // ═══════════════════════════════════════════════════════════
-// APARTMENT IMAGES VIEW - COMPLETE FIX
-// ✅ Proper list refresh after publish
-// ✅ Fixed snackbar disposal error
+// APARTMENT IMAGES VIEW - FIXED
+// Uses ApartmentModel (not OwnerApartmentModel)
 // ═══════════════════════════════════════════════════════════
 
 class ApartmentImagesView extends StatefulWidget {
   final bool isEdit;
-  final OwnerApartmentModel? editingApartment;
+  final ApartmentModel? editingApartment;  // ✅ Changed type
 
   const ApartmentImagesView({
     super.key,
@@ -27,41 +25,70 @@ class ApartmentImagesView extends StatefulWidget {
 }
 
 class _ApartmentImagesViewState extends State<ApartmentImagesView> {
-  final c = Get.find<PostAdController>();
   final ImagePicker _picker = ImagePicker();
 
-  late List<XFile> _selectedImages;
-  late XFile? _selectedMainImage;
+  final List<XFile> _selectedImages = [];
+  XFile? _selectedMainImage;
   bool _isPublishing = false;
 
   @override
   void initState() {
     super.initState();
-
-    if (widget.isEdit && widget.editingApartment != null) {
-      final a = widget.editingApartment!;
-      // Load existing images if editing
-    }
-
-    _selectedImages = [];
-    _selectedMainImage = null;
+    print('📸 ApartmentImagesView initialized (isEdit: ${widget.isEdit})');
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // IMAGE SELECTION
+  // ═══════════════════════════════════════════════════════════
+  
   Future<void> _pickImages() async {
-    final List<XFile> images = await _picker.pickMultiImage();
-    if (images.isNotEmpty) {
-      setState(() {
-        _selectedImages.addAll(images);
-      });
+    try {
+      final List<XFile> images = await _picker.pickMultiImage();
+      
+      if (images.isNotEmpty) {
+        setState(() {
+          _selectedImages.addAll(images);
+        });
+        
+        print('📸 Added ${images.length} images');
+        print('   Total images: ${_selectedImages.length}');
+      }
+    } catch (e) {
+      print('❌ Error picking images: $e');
+      
+      if (mounted) {
+        Get.snackbar(
+          'خطأ',
+          'فشل اختيار الصور',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+      }
     }
   }
 
   Future<void> _pickMainImage() async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      setState(() {
-        _selectedMainImage = image;
-      });
+    try {
+      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+      
+      if (image != null) {
+        setState(() {
+          _selectedMainImage = image;
+        });
+        
+        print('📸 Main image selected: ${image.path}');
+      }
+    } catch (e) {
+      print('❌ Error picking main image: $e');
+      
+      if (mounted) {
+        Get.snackbar(
+          'خطأ',
+          'فشل اختيار الصورة الرئيسية',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+      }
     }
   }
 
@@ -69,22 +96,27 @@ class _ApartmentImagesViewState extends State<ApartmentImagesView> {
     setState(() {
       _selectedImages.remove(image);
     });
+    print('🗑️ Removed image: ${image.path}');
+    print('   Remaining: ${_selectedImages.length}');
   }
 
   void _clearMainImage() {
     setState(() {
       _selectedMainImage = null;
     });
+    print('🗑️ Cleared main image');
   }
 
   // ═══════════════════════════════════════════════════════════
-  // PUBLISH WITH PROPER LIST REFRESH AND SNACKBAR FIX
+  // PUBLISH APARTMENT
   // ═══════════════════════════════════════════════════════════
+  
   Future<void> _publishApartment() async {
+    // Validation
     if (_selectedImages.isEmpty) {
       Get.snackbar(
-        "تحذير",
-        "الرجاء اختيار صور للشقة",
+        'تحذير',
+        'الرجاء اختيار صورة واحدة على الأقل',
         backgroundColor: Colors.orange,
         colorText: Colors.white,
         duration: const Duration(seconds: 2),
@@ -99,272 +131,306 @@ class _ApartmentImagesViewState extends State<ApartmentImagesView> {
     try {
       print('');
       print('═══════════════════════════════════════════════════════════');
-      print('📸 SAVING IMAGES AND PUBLISHING');
-      print('═══════════════════════════════════════════════════════════');
-
+      print('📤 PUBLISHING APARTMENT');
+      print('──────────────────────────────────────────────────────────');
+      
+      final c = Get.find<PostAdController>();
+      
+      // Convert XFile list to path strings
+      final imagePaths = _selectedImages.map((file) => file.path).toList();
+      
+      print('   Selected images: ${imagePaths.length}');
+      for (var i = 0; i < imagePaths.length; i++) {
+        print('      ${i + 1}. ${imagePaths[i]}');
+      }
+      
+      if (_selectedMainImage != null) {
+        print('   Main image: ${_selectedMainImage!.path}');
+      }
+      
+      print('──────────────────────────────────────────────────────────');
+      
       // Save images to draft
-      await c.saveDraftImagesFromFiles(
-        imageFiles: _selectedImages,
-        mainImageFile: _selectedMainImage,
-      );
-
+      print('💾 Saving images to draft...');
+      await c.saveDraftImagesFromFiles(imagePaths);
+      print('✅ Images saved to draft');
+      
       // Publish the draft
+      print('📤 Publishing to backend...');
       await c.publishDraft();
-
+      
       print('');
+      print('✅ PUBLISH COMPLETE');
       print('═══════════════════════════════════════════════════════════');
-      print('✅ PUBLISH COMPLETE - NAVIGATING');
-      print('═══════════════════════════════════════════════════════════');
 
-      // ✅ Navigate first (avoiding snackbar disposal)
-      Get.back(); // Back to form
-      Get.back(); // Back to post ad screen
-
-      // ✅ Wait before showing snackbar
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      // ✅ Show success snackbar AFTER navigation
+      // Show success message BEFORE navigation
       if (mounted) {
         Get.snackbar(
-          '✅ نجح النشر',
+          'نجح',
           'تم نشر الشقة بنجاح',
           backgroundColor: Colors.green,
           colorText: Colors.white,
           icon: const Icon(Icons.check_circle, color: Colors.white),
           duration: const Duration(seconds: 2),
-          snackPosition: SnackPosition.TOP,
-          margin: const EdgeInsets.all(10),
         );
       }
+      
+      // Wait a bit for user to see the message
+      await Future.delayed(const Duration(milliseconds: 500));
 
+      // Navigate back
+      if (mounted) {
+        Get.back(); // Back to form screen
+        Get.back(); // Back to post ad screen
+      }
+      
     } catch (e) {
-      setState(() {
-        _isPublishing = false;
-      });
-
       print('');
-      print('❌ Error publishing: $e');
+      print('❌ PUBLISH FAILED');
+      print('   Error: $e');
       print('═══════════════════════════════════════════════════════════');
-
-      Get.snackbar(
-        '❌ خطأ',
-        'فشل نشر الشقة: $e',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-        duration: const Duration(seconds: 3),
-      );
+      
+      // Show error message
+      if (mounted) {
+        Get.snackbar(
+          'خطأ',
+          'فشل نشر الشقة: $e',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+          icon: const Icon(Icons.error, color: Colors.white),
+          duration: const Duration(seconds: 3),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isPublishing = false;
+        });
+      }
     }
   }
+
+  // ═══════════════════════════════════════════════════════════
+  // BUILD UI
+  // ═══════════════════════════════════════════════════════════
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("إضافة صور")),
-      body: ListView(
-        padding: const EdgeInsets.all(12),
-        children: [
-          const Text(
-            "اختر من المعرض",
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 10),
-
-          // Selected Images Preview
-          if (_selectedImages.isNotEmpty)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "الصور المختارة (${_selectedImages.length})",
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  height: 100,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _selectedImages.length,
-                    itemBuilder: (context, index) {
-                      final image = _selectedImages[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: Stack(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: Image.file(
-                                File(image.path),
-                                width: 90,
-                                height: 90,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                            Positioned(
-                              top: 0,
-                              right: 0,
-                              child: GestureDetector(
-                                onTap: () => _removeImage(image),
-                                child: Container(
-                                  width: 24,
-                                  height: 24,
-                                  decoration: const BoxDecoration(
-                                    color: Colors.red,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.close,
-                                    size: 16,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 16),
-              ],
-            ),
-
-          ElevatedButton.icon(
-            onPressed: _isPublishing ? null : _pickImages,
-            icon: const Icon(Icons.photo_library),
-            label: const Text("إضافة صور"),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-            ),
-          ),
-
-          const SizedBox(height: 24),
-          const Divider(),
-          const SizedBox(height: 16),
-
-          const Text(
-            "اختر الصورة الرئيسية",
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 10),
-
-          if (_selectedMainImage != null)
-            Column(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.file(
-                    File(_selectedMainImage!.path),
-                    width: double.infinity,
-                    height: 200,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextButton.icon(
-                  onPressed: _clearMainImage,
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  label: const Text(
-                    "إزالة الصورة الرئيسية",
-                    style: TextStyle(color: Colors.red),
-                  ),
-                ),
-                const SizedBox(height: 16),
-              ],
-            )
-          else
+      appBar: AppBar(
+        title: Text(widget.isEdit ? 'تعديل الصور' : 'صور الشقة'),
+        backgroundColor: Colors.blue,
+        foregroundColor: Colors.white,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Instructions
             Container(
-              height: 200,
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.grey[200],
+                color: Colors.blue.shade50,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey[400]!),
+                border: Border.all(color: Colors.blue.shade200),
               ),
-              child: const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.image, size: 64, color: Colors.grey),
-                    SizedBox(height: 8),
-                    Text(
-                      'لا توجد صورة رئيسية',
-                      style: TextStyle(color: Colors.grey),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.blue.shade700),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'اختر صور الشقة (يجب اختيار صورة واحدة على الأقل)',
+                      style: TextStyle(
+                        color: Colors.blue.shade700,
+                        fontSize: 14,
+                      ),
                     ),
-                  ],
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Pick Images Button
+            ElevatedButton.icon(
+              onPressed: _isPublishing ? null : _pickImages,
+              icon: const Icon(Icons.add_photo_alternate),
+              label: const Text('اختيار الصور'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                textStyle: const TextStyle(fontSize: 16),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Selected Images Grid
+            if (_selectedImages.isNotEmpty) ...[
+              Text(
+                'الصور المحددة (${_selectedImages.length})',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-            ),
-
-          const SizedBox(height: 16),
-
-          ElevatedButton.icon(
-            onPressed: _isPublishing ? null : _pickMainImage,
-            icon: const Icon(Icons.add_a_photo),
-            label: const Text("اختيار الصورة الرئيسية"),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-            ),
-          ),
-
-          const SizedBox(height: 32),
-
-          // ✅ PUBLISH BUTTON WITH LOADING STATE
-          SizedBox(
-            height: 50,
-            child: ElevatedButton.icon(
-              onPressed: _isPublishing ? null : _publishApartment,
-              icon: _isPublishing
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
+              const SizedBox(height: 12),
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
+                ),
+                itemCount: _selectedImages.length,
+                itemBuilder: (context, index) {
+                  final image = _selectedImages[index];
+                  return Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // Image
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.file(
+                          File(image.path),
+                          fit: BoxFit.cover,
+                        ),
                       ),
-                    )
-                  : const Icon(Icons.publish),
-              label: Text(
-                _isPublishing
-                    ? 'جاري النشر...'
-                    : (widget.isEdit
-                        ? "حفظ التعديل والعودة"
-                        : "نشر الشقة والعودة"),
-                style: const TextStyle(fontSize: 16),
+                      // Remove button
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        child: GestureDetector(
+                          onTap: () => _removeImage(image),
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.close,
+                              color: Colors.white,
+                              size: 16,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
+              const SizedBox(height: 24),
+            ],
+
+            // Main Image Section (Optional)
+            if (_selectedMainImage != null) ...[
+              const Text(
+                'الصورة الرئيسية',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.file(
+                      File(_selectedMainImage!.path),
+                      height: 200,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: GestureDetector(
+                      onTap: _clearMainImage,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.close,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+            ],
+
+            // Publish Button
+            ElevatedButton(
+              onPressed: _isPublishing ? null : _publishApartment,
               style: ElevatedButton.styleFrom(
-                backgroundColor: _isPublishing ? Colors.grey : Colors.green,
-                disabledBackgroundColor: Colors.grey,
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                textStyle: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              child: _isPublishing
+                  ? const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        ),
+                        SizedBox(width: 12),
+                        Text('جاري النشر...'),
+                      ],
+                    )
+                  : const Text('نشر الشقة'),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Cancel Button
+            TextButton(
+              onPressed: _isPublishing
+                  ? null
+                  : () {
+                      final controller = Get.find<PostAdController>();
+                      controller.cancelDraft();
+                      Get.back();
+                    },
+              child: const Text(
+                'إلغاء',
+                style: TextStyle(fontSize: 16),
               ),
             ),
-          ),
 
-          const SizedBox(height: 16),
-
-          // Info text
-          if (_selectedImages.isEmpty)
-            const Text(
-              'الرجاء اختيار صورة واحدة على الأقل',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.red,
-                fontSize: 12,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-        ],
+            const SizedBox(height: 24),
+          ],
+        ),
       ),
     );
   }
 
-  Future<Uint8List?> _loadImageBytes(XFile imageFile) async {
-    try {
-      return await imageFile.readAsBytes();
-    } catch (e) {
-      print("Error reading image bytes: $e");
-      return null;
-    }
+  @override
+  void dispose() {
+    print('📸 ApartmentImagesView disposed');
+    super.dispose();
   }
 }
