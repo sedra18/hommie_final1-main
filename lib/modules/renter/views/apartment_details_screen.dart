@@ -1,3 +1,4 @@
+import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hommie/data/models/user/user_permission_controller.dart';
@@ -9,8 +10,10 @@ import 'package:hommie/widgets/rating_stars_widget.dart';
 class ApartmentDetailsScreen extends StatelessWidget {
   ApartmentDetailsScreen({super.key});
   
-  // Permission controller for checking approval status
   final permissions = Get.put(UserPermissionsController());
+  
+  // ✅ Track current carousel page
+  final RxInt currentCarouselIndex = 0.obs;
 
   Widget _buildDetailIcon(IconData icon, String label, String value) {
     return Column(
@@ -57,17 +60,12 @@ class ApartmentDetailsScreen extends StatelessWidget {
       return Scaffold(
         backgroundColor: AppColors.backgroundLight,
         
-        // ═══════════════════════════════════════════════════════════
-        // UPDATED BOTTOM NAVIGATION BAR WITH APPROVAL SYSTEM
-        // ═══════════════════════════════════════════════════════════
         bottomNavigationBar: Obx(() {
-          // Don't show booking section for owners
           if (permissions.isOwner) {
             return Padding(
               padding: const EdgeInsets.all(15.0),
               child: Row(
                 children: [
-                  // Favorite button
                   Container(
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(15),
@@ -84,8 +82,6 @@ class ApartmentDetailsScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  
-                  // Contact Owner button
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () {},
@@ -114,7 +110,6 @@ class ApartmentDetailsScreen extends StatelessWidget {
           final isPending = permissions.isPending;
           final isRenter = permissions.isRenter;
 
-          // Only show booking section for renters
           if (!isRenter) {
             return const SizedBox.shrink();
           }
@@ -135,7 +130,6 @@ class ApartmentDetailsScreen extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // PENDING APPROVAL WARNING (shown if not approved)
                   if (isPending)
                     Container(
                       width: double.infinity,
@@ -168,10 +162,8 @@ class ApartmentDetailsScreen extends StatelessWidget {
                       ),
                     ),
 
-                  // Buttons Row
                   Row(
                     children: [
-                      // Favorite button
                       Container(
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(15),
@@ -189,7 +181,6 @@ class ApartmentDetailsScreen extends StatelessWidget {
                       ),
                       const SizedBox(width: 10),
 
-                      // Contact Owner button
                       Expanded(
                         child: OutlinedButton(
                           onPressed: () {},
@@ -212,7 +203,6 @@ class ApartmentDetailsScreen extends StatelessWidget {
                       
                       const SizedBox(width: 10),
 
-                      // BOOK NOW BUTTON (conditional - enabled only if approved)
                       SizedBox(
                         width: 60,
                         height: 54,
@@ -226,7 +216,6 @@ class ApartmentDetailsScreen extends StatelessWidget {
                                   print('   Can Book: $canBook');
                                   print('──────────────────────────────────────────────────────────');
                                   
-                                  // Check permission with message
                                   if (permissions.checkPermission('book', showMessage: true)) {
                                     print('✅ Permission granted - Proceeding to booking');
                                     controller.bookApartment();
@@ -235,11 +224,11 @@ class ApartmentDetailsScreen extends StatelessWidget {
                                   }
                                   print('═══════════════════════════════════════════════════════════');
                                 }
-                              : null, // DISABLED if can't book
+                              : null,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: canBook
-                                ? AppColors.primary // Blue when enabled
-                                : Colors.grey[400], // Grey when disabled
+                                ? AppColors.primary
+                                : Colors.grey[400],
                             foregroundColor: canBook 
                                 ? AppColors.backgroundLight 
                                 : Colors.grey[600],
@@ -270,6 +259,9 @@ class ApartmentDetailsScreen extends StatelessWidget {
         
         body: CustomScrollView(
           slivers: [
+            // ═══════════════════════════════════════════════════════════
+            // ✅ FIXED CAROUSEL SLIDER WITH DOTS INDICATOR
+            // ═══════════════════════════════════════════════════════════
             SliverAppBar(
               expandedHeight: 300, 
               pinned: true,
@@ -281,30 +273,160 @@ class ApartmentDetailsScreen extends StatelessWidget {
               flexibleSpace: FlexibleSpaceBar(
                 centerTitle: false,
                 background: apartment.imageUrls.isNotEmpty
-                    ? SizedBox(
-                        height: 300,
-                        child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: apartment.imageUrls.length,
-                          itemBuilder: (context, index) {
-                            final url = ApartmentsService.getCleanImageUrl(apartment.imageUrls[index]);
-                            return Image.network(
-                              url, 
-                              fit: BoxFit.cover,
-                              width: MediaQuery.of(context).size.width,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  Container(
-                                    width: MediaQuery.of(context).size.width,
-                                    color: AppColors.textSecondaryLight.withOpacity(0.2),
-                                    child: const Center(child: Icon(Icons.broken_image, color: AppColors.backgroundLight, size: 80)),
+                    ? Stack(
+                        children: [
+                          // ✅ CAROUSEL SLIDER
+                          CarouselSlider(
+                            options: CarouselOptions(
+                              height: 300,
+                              viewportFraction: 1.0,
+                              enlargeCenterPage: false,
+                              autoPlay: true,                    // ✅ Auto play
+                              autoPlayInterval: const Duration(seconds: 4),
+                              autoPlayAnimationDuration: const Duration(milliseconds: 800),
+                              autoPlayCurve: Curves.fastOutSlowIn,
+                              pauseAutoPlayOnTouch: true,
+                              enableInfiniteScroll: apartment.imageUrls.length > 1,
+                              onPageChanged: (index, reason) {
+                                currentCarouselIndex.value = index;
+                              },
+                            ),
+                            items: apartment.imageUrls.map((imageUrl) {
+                              final url = ApartmentsService.getCleanImageUrl(imageUrl);
+                              return Builder(
+                                builder: (BuildContext context) {
+                                  return GestureDetector(
+                                    onTap: () {
+                                      // ✅ Optional: Zoom image on tap
+                                      showDialog(
+                                        context: context,
+                                        builder: (context) => Dialog(
+                                          backgroundColor: Colors.transparent,
+                                          child: Stack(
+                                            children: [
+                                              Center(
+                                                child: InteractiveViewer(
+                                                  child: Image.network(
+                                                    url,
+                                                    fit: BoxFit.contain,
+                                                  ),
+                                                ),
+                                              ),
+                                              Positioned(
+                                                top: 20,
+                                                right: 20,
+                                                child: IconButton(
+                                                  icon: const Icon(
+                                                    Icons.close,
+                                                    color: Colors.white,
+                                                    size: 30,
+                                                  ),
+                                                  onPressed: () => Navigator.pop(context),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    child: Container(
+                                      width: MediaQuery.of(context).size.width,
+                                      decoration: const BoxDecoration(
+                                        color: Colors.black,
+                                      ),
+                                      child: Image.network(
+                                        url, 
+                                        fit: BoxFit.cover,
+                                        width: MediaQuery.of(context).size.width,
+                                        loadingBuilder: (context, child, loadingProgress) {
+                                          if (loadingProgress == null) return child;
+                                          return Center(
+                                            child: CircularProgressIndicator(
+                                              color: AppColors.primary,
+                                              value: loadingProgress.expectedTotalBytes != null
+                                                  ? loadingProgress.cumulativeBytesLoaded /
+                                                      loadingProgress.expectedTotalBytes!
+                                                  : null,
+                                            ),
+                                          );
+                                        },
+                                        errorBuilder: (context, error, stackTrace) =>
+                                            Container(
+                                              width: MediaQuery.of(context).size.width,
+                                              color: AppColors.textSecondaryLight.withOpacity(0.2),
+                                              child: const Center(
+                                                child: Icon(
+                                                  Icons.broken_image, 
+                                                  color: AppColors.backgroundLight, 
+                                                  size: 80
+                                                ),
+                                              ),
+                                            ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              );
+                            }).toList(),
+                          ),
+                          
+                          // ✅ DOTS INDICATOR
+                          if (apartment.imageUrls.length > 1)
+                            Positioned(
+                              bottom: 20,
+                              left: 0,
+                              right: 0,
+                              child: Obx(() => Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: apartment.imageUrls.asMap().entries.map((entry) {
+                                  return Container(
+                                    width: currentCarouselIndex.value == entry.key ? 12 : 8,
+                                    height: 8,
+                                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(4),
+                                      color: currentCarouselIndex.value == entry.key
+                                          ? AppColors.primary
+                                          : Colors.white.withOpacity(0.5),
+                                    ),
+                                  );
+                                }).toList(),
+                              )),
+                            ),
+                          
+                          // ✅ IMAGE COUNTER (optional)
+                          if (apartment.imageUrls.length > 1)
+                            Positioned(
+                              top: 20,
+                              right: 20,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.6),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Obx(() => Text(
+                                  '${currentCarouselIndex.value + 1}/${apartment.imageUrls.length}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
                                   ),
-                            );
-                          },
-                        ),
+                                )),
+                              ),
+                            ),
+                        ],
                       )
-                    : const Center(child: Icon(Icons.image_not_supported, size: 80, color: AppColors.backgroundLight)),
+                    : const Center(
+                        child: Icon(
+                          Icons.image_not_supported, 
+                          size: 80, 
+                          color: AppColors.backgroundLight
+                        ),
+                      ),
               ),
             ),
+            
             SliverList(
               delegate: SliverChildListDelegate([
                 Padding(

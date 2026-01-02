@@ -5,7 +5,7 @@ import 'package:hommie/modules/owner/views/main_nav_view.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../data/models/signup/signup_step4_model.dart';
 import '../../../data/services/signup_step4_service.dart';
-import 'package:hommie/modules/renter/views/renter_home.dart';
+import 'package:hommie/modules/renter/views/renter_home_screen.dart';
 
 // ═══════════════════════════════════════════════════════════
 // SIGNUP STEP 4 CONTROLLER - ULTIMATE FIX

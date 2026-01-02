@@ -16,6 +16,8 @@ class LogoutService extends GetConnect {
       final token = box.read('access_token');
       if (token != null) {
         request.headers['Authorization'] = 'Bearer $token'; 
+        request.headers['Accept'] = 'application/json'; 
+
       }
       return request;
     });

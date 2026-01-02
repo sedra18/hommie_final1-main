@@ -1,5 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:convex_bottom_bar/convex_bottom_bar.dart';
 import 'package:hommie/app/utils/app_colors.dart';
+
+// ═══════════════════════════════════════════════════════════
+// CUSTOM CONVEX BOTTOM BAR
+// ✅ Modern curved design
+// ✅ Smooth animations
+// ✅ Custom colors
+// ═══════════════════════════════════════════════════════════
 
 class CustomNavBar extends StatelessWidget {
   final int currentIndex;
@@ -13,40 +21,79 @@ class CustomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BottomNavigationBar(
-      currentIndex: currentIndex,
+    return ConvexAppBar(
+      // ═══════════════════════════════════════════════════════
+      // STYLE & APPEARANCE
+      // ═══════════════════════════════════════════════════════
+      
+      style: TabStyle.fixedCircle,  // ✅ Curved with circle in middle
+      
+      backgroundColor: AppColors.primary,  // Background color
+      color: Colors.white70,  // Inactive icon color
+      activeColor: Colors.white,  // Active icon color
+      
+      // Elevated button (middle icon)
+      curveSize: 90,  // Size of the curve
+      top: -28,  // How far the middle button pops up
+      height: 60,  // Total height of the bar
+      
+      // ═══════════════════════════════════════════════════════
+      // GRADIENT FOR ELEVATED BUTTON (Optional)
+      // ═══════════════════════════════════════════════════════
+      
+      gradient: const LinearGradient(
+        colors: [
+          Color(0xFF3A7AFE),  // AppColors.primary
+          Color(0xFF5B8EFF),  // Lighter shade
+        ],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      
+      // ═══════════════════════════════════════════════════════
+      // NAVIGATION
+      // ═══════════════════════════════════════════════════════
+      
+      initialActiveIndex: currentIndex,
       onTap: onTap,
-      backgroundColor: AppColors.primary,
-      selectedItemColor: AppColors.backgroundLight,
-      unselectedItemColor: AppColors.textSecondaryLight,
-      type: BottomNavigationBarType.fixed,
-      showSelectedLabels: false,
-      showUnselectedLabels: false,
+      
+      // ═══════════════════════════════════════════════════════
+      // ITEMS
+      // ═══════════════════════════════════════════════════════
+      
       items: const [
-        BottomNavigationBarItem(
-          icon: Icon(Icons.home_outlined),
-          activeIcon: Icon(Icons.home),
-          label: 'Home',
+        // Home
+        TabItem(
+          icon: Icons.home_outlined,
+          activeIcon: Icons.home,
+          title: 'Home',
         ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.search_outlined),
-          activeIcon: Icon(Icons.search),
-          label: 'Search',
+        
+        // Search
+        TabItem(
+          icon: Icons.search_outlined,
+          activeIcon: Icons.search,
+          title: 'Search',
         ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.favorite_border),
-          activeIcon: Icon(Icons.favorite),
-          label: 'Favorites',
+        
+        // Favorites (MIDDLE - ELEVATED)
+        TabItem(
+          icon: Icons.favorite,
+          title: 'Favorites',
         ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.chat_bubble_outline),
-          activeIcon: Icon(Icons.chat_bubble),
-          label: 'Chat',
+        
+        // Chat
+        TabItem(
+          icon: Icons.chat_bubble_outline,
+          activeIcon: Icons.chat_bubble,
+          title: 'Chat',
         ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.person_outline),
-          activeIcon: Icon(Icons.person),
-          label: 'Profile',
+        
+        // Profile
+        TabItem(
+          icon: Icons.person_outline,
+          activeIcon: Icons.person,
+          title: 'Profile',
         ),
       ],
     );

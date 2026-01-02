@@ -5,16 +5,24 @@ import 'package:hommie/app/utils/app_colors.dart';
 import 'package:hommie/data/models/user/user_login_model.dart';
 import 'package:hommie/data/models/user/user_permission_controller.dart';
 import 'package:hommie/data/services/auth_service.dart';
+import 'package:hommie/data/services/otp_service.dart';  // ✅ Import OtpService
 import 'package:hommie/data/services/token_storage_service.dart';
 import 'package:hommie/helpers/loading_helper.dart';
 import 'package:hommie/modules/owner/views/main_nav_view.dart';
-import 'package:hommie/modules/renter/views/renter_home.dart';
-import 'package:hommie/modules/shared/views/empty_screen.dart';
+import 'package:hommie/modules/renter/views/renter_home_screen.dart';
 
+// ═══════════════════════════════════════════════════════════
+// LOGIN SCREEN CONTROLLER - FIXED
+// ✅ Uses OtpService for password reset (not AuthService)
+// ✅ Proper error handling
+// ✅ Complete reset password flow
+// ═══════════════════════════════════════════════════════════
 
 class LoginScreenController extends GetxController {
   final AuthService _authService = Get.put(AuthService());
+  final OtpService _otpService = Get.put(OtpService());  // ✅ Add OtpService
   final permissions = Get.put(UserPermissionsController());
+  
   var logingFirstTime = false;
   final userPhoneController = TextEditingController();
   final passwordController = TextEditingController();
@@ -48,15 +56,18 @@ class LoginScreenController extends GetxController {
     return null;
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // LOGIN
+  // ═══════════════════════════════════════════════════════════
 
   Future<void> login() async {
     if (!key.currentState!.validate()) return;
 
     print('');
-   
-    print(' LOGIN STARTED');
-   
+    print('═══════════════════════════════════════════════════════════');
+    print('🔐 LOGIN STARTED');
     print('   Phone: ${userPhoneController.text}');
+    print('──────────────────────────────────────────────────────────');
 
     final user = UserLoginModel(
       phone: userPhoneController.text,
@@ -77,26 +88,25 @@ class LoginScreenController extends GetxController {
         if (data.token != null) {
           final box = GetStorage();
           
-          print('');
-          print(' LOGIN SUCCESSFUL');
+          print('✅ LOGIN SUCCESSFUL');
           print('   Token: ${data.token?.substring(0, 20)}...');
           print('   Role: ${data.role}');
+          print('   User ID: ${data.id}');  // ✅ Use data.id, not data.user.id
           print('   Is Approved: ${data.isApproved}');
+          print('──────────────────────────────────────────────────────────');
 
-  
+          // ✅ Save to GetStorage
           box.write('access_token', data.token);
           box.write('user_role', data.role);
-          box.write('role', data.role);  
+          box.write('role', data.role);
+          box.write('user_id', data.id);  // ✅ Use data.id, not data.user.id
           box.write('is_approved', data.isApproved ?? false);
 
-      
+          // ✅ Update permissions
           permissions.updateApprovalStatus(
             data.isApproved ?? false,
             data.role ?? '',
           );
-
-          print('   User Role: ${data.role}');
-          print('   User Token: ${data.token}');
 
           Get.snackbar(
             'Success', 
@@ -108,74 +118,191 @@ class LoginScreenController extends GetxController {
 
           await Future.delayed(const Duration(milliseconds: 500));
 
-         
+          // ✅ Navigate based on role
           if (data.role == 'renter') {
-            print('  Navigating to Renter Home');
-            Get.offAll(() => RenterHomeScreen());
+            print('🏠 Navigating to Renter Home');
+            print('═══════════════════════════════════════════════════════════');
+            Get.offAll(() => const RenterHomeScreen());
           } else if (data.role == 'owner') {
-            print('Navigating to Owner Home');
+            print('🏠 Navigating to Owner Home');
+            print('═══════════════════════════════════════════════════════════');
             Get.offAll(() => const MainNavView());
           } else {
-            print(' Navigating to Default Home');
-            Get.offAll(() => RenterHomeScreen());
+            print('🏠 Navigating to Default Home');
+            print('═══════════════════════════════════════════════════════════');
+            Get.offAll(() => const RenterHomeScreen());
           }
+
+          // Show pending approval message if needed
           if (!(data.isApproved ?? false)) {
-            print(' User is pending approval');
+            print('⚠️ User is pending approval');
             Future.delayed(const Duration(milliseconds: 1000), () {
               permissions.showPendingApprovalMessage();
             });
           }
 
-
         } else {
-          print(' No token received');
+          print('❌ No token received');
+          print('═══════════════════════════════════════════════════════════');
           Get.snackbar("Error", "Login failed: No authorization token received.");
         }
       } else {
-        print(' LOGIN FAILED');
+        print('❌ LOGIN FAILED');
         print('   Status: ${response.statusCode}');
+        print('═══════════════════════════════════════════════════════════');
         Get.snackbar("Error", "Invalid phone number or password.");
       }
     } catch (e, stackTrace) {
       LoadingHelper.hide();
       isLoading.value = false;
       
-      print(' LOGIN EXCEPTION');
+      print('❌ LOGIN EXCEPTION');
       print('   Error: $e');
       print('   Stack: ${stackTrace.toString().split('\n').take(3).join('\n')}');
+      print('═══════════════════════════════════════════════════════════');
       
       Get.snackbar('Error', 'Connection error!');
     }
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // PASSWORD RESET FLOW - ✅ FIXED
+  // Uses OtpService instead of AuthService
+  // ═══════════════════════════════════════════════════════════
 
-  
+  /// Step 1: Send Reset OTP
   Future<void> sendResetOtp() async {
     if (resetPhoneController.text.length < 9) {
       Get.snackbar("Error", "Please enter a valid phone number.");
       return;
     }
 
+    print('');
+    print('═══════════════════════════════════════════════════════════');
+    print('📧 SENDING RESET OTP');
+    print('   Phone: ${resetPhoneController.text}');
+    print('──────────────────────────────────────────────────────────');
+
     LoadingHelper.show();
     try {
-      final response = await _authService.sendResetOtp(
+      // ✅ Use OtpService, not AuthService!
+      final response = await _otpService.sendResetOtp(
         resetPhoneController.text,
       );
+      
       LoadingHelper.hide();
 
-      if (response.statusCode == 200) {
-        Get.back();
-        Get.snackbar("Success", "Verification code sent successfully.");
-        Get.to(() => EmptyScreen());
-        showOtpDialog();
+      print('📥 Response received: $response');
+      print('═══════════════════════════════════════════════════════════');
+
+      // ✅ Check for error
+      if (response.containsKey('error')) {
+        Get.snackbar("Error", response['error']);
       } else {
-        Get.snackbar("Error", "Failed to send verification code.");
+        Get.back();  // Close phone dialog
+        Get.snackbar("Success", "Verification code sent successfully.");
+        showOtpDialog();
       }
     } catch (e) {
       LoadingHelper.hide();
+      print('❌ Exception: $e');
+      print('═══════════════════════════════════════════════════════════');
       Get.snackbar("Error", "Connection error!");
     }
   }
+
+  /// Step 2: Verify OTP
+  Future<void> verifyOtp() async {
+    if (otpController.text.length < 4) {
+      Get.snackbar("Error", "Please enter a valid OTP.");
+      return;
+    }
+
+    print('');
+    print('═══════════════════════════════════════════════════════════');
+    print('🔍 VERIFYING OTP');
+    print('   Phone: ${resetPhoneController.text}');
+    print('   Code: ${otpController.text.replaceAll(RegExp(r'\d'), '*')}');
+    print('──────────────────────────────────────────────────────────');
+
+    LoadingHelper.show();
+    try {
+      // ✅ Use OtpService, not AuthService!
+      final response = await _otpService.verifyResetOtp(
+        resetPhoneController.text,
+        otpController.text,
+      );
+      
+      LoadingHelper.hide();
+
+      print('📥 Response received: $response');
+      print('═══════════════════════════════════════════════════════════');
+
+      // ✅ Check for error
+      if (response.containsKey('error')) {
+        Get.snackbar("Error", response['error']);
+      } else {
+        Get.back();  // Close OTP dialog
+        Get.snackbar("Success", "OTP verified successfully.");
+        showNewPasswordDialog();
+      }
+    } catch (e) {
+      LoadingHelper.hide();
+      print('❌ Exception: $e');
+      print('═══════════════════════════════════════════════════════════');
+      Get.snackbar("Error", "Connection error!");
+    }
+  }
+
+  /// Step 3: Reset Password
+  Future<void> resetPassword() async {
+    if (newPasswordController.text.length < 6) {
+      Get.snackbar("Error", "Password must be at least 6 characters.");
+      return;
+    }
+
+    print('');
+    print('═══════════════════════════════════════════════════════════');
+    print('🔐 RESETTING PASSWORD');
+    print('   Phone: ${resetPhoneController.text}');
+    print('──────────────────────────────────────────────────────────');
+
+    LoadingHelper.show();
+    try {
+      // ✅ Use OtpService, not AuthService!
+      final response = await _otpService.resetPassword(
+        phone: resetPhoneController.text,
+        newPassword: newPasswordController.text,
+      );
+      
+      LoadingHelper.hide();
+
+      print('📥 Response received: $response');
+      print('═══════════════════════════════════════════════════════════');
+
+      // ✅ Check for error
+      if (response.containsKey('error')) {
+        Get.snackbar("Error", response['error']);
+      } else {
+        Get.back();  // Close password dialog
+        Get.snackbar("Success", "Password reset successfully.");
+        
+        // Clear all fields
+        resetPhoneController.clear();
+        otpController.clear();
+        newPasswordController.clear();
+      }
+    } catch (e) {
+      LoadingHelper.hide();
+      print('❌ Exception: $e');
+      print('═══════════════════════════════════════════════════════════');
+      Get.snackbar("Error", "Connection error!");
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // UI DIALOGS
+  // ═══════════════════════════════════════════════════════════
 
   void showResetPhoneDialog() {
     resetPhoneController.clear();
@@ -287,33 +414,6 @@ class LoginScreenController extends GetxController {
     );
   }
 
-  Future<void> verifyOtp() async {
-    if (otpController.text.length < 4) {
-      Get.snackbar("Error", "Please enter a valid OTP.");
-      return;
-    }
-
-    LoadingHelper.show();
-    try {
-      final response = await _authService.verifyResetOtp(
-        resetPhoneController.text,
-        otpController.text,
-      );
-      LoadingHelper.hide();
-
-      if (response.statusCode == 200) {
-        Get.back();
-        Get.snackbar("Success", "OTP verified successfully.");
-        showNewPasswordDialog();
-      } else {
-        Get.snackbar("Error", "Invalid OTP.");
-      }
-    } catch (e) {
-      LoadingHelper.hide();
-      Get.snackbar("Error", "Connection error!");
-    }
-  }
-
   void showNewPasswordDialog() {
     newPasswordController.clear();
     Get.defaultDialog(
@@ -369,34 +469,6 @@ class LoginScreenController extends GetxController {
     );
   }
 
-
-  Future<void> resetPassword() async {
-    if (newPasswordController.text.length < 6) {
-      Get.snackbar("Error", "Password must be at least 6 characters.");
-      return;
-    }
-
-    LoadingHelper.show();
-    try {
-  
-      final response = await _authService.resetPassword(
-        resetPhoneController.text,    
-        newPasswordController.text,   
-      );
-      LoadingHelper.hide();
-
-      if (response.statusCode == 200) {
-        Get.back();
-        Get.snackbar("Success", "Password reset successfully.");
-      } else {
-        Get.snackbar("Error", "Failed to reset password.");
-      }
-    } catch (e) {
-      LoadingHelper.hide();
-      Get.snackbar("Error", "Connection error!");
-    }
-  }
-
   @override
   void onClose() {
     userPhoneController.dispose();
@@ -406,39 +478,4 @@ class LoginScreenController extends GetxController {
     newPasswordController.dispose();
     super.onClose();
   }
-  
-void onLoginSuccess(Map<String, dynamic> response) async {
-  try {
-    final token = response['token'];
-    final user = response['user'];
-    final role = user['role'];
-    
-    // Save to AuthService (this persists the state)
-    final authService = Get.find<AuthService>();
-    await authService.saveUserState(
-      token: token,
-      user: user,
-      role: role,
-    );
-    
-    // Also save to TokenStorageService (for API calls)
-    final tokenService = Get.find<TokenStorageService>();
-    await tokenService.saveToken(token);
-    await tokenService.saveUserId(user['id']);
-    await tokenService.saveRole(role);
-    
-    // Navigate based on role
-    if (role == 'renter') {
-      Get.offAllNamed('/home');
-    } else if (role == 'owner') {
-      Get.offAllNamed('/owner_home');
-    }
-    
-    print('✅ Login successful for $role');
-  } catch (e) {
-    print('❌ Login error: $e');
-    Get.snackbar('Error', 'Login failed');
-  }
-}
-
 }

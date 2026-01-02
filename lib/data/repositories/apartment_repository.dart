@@ -31,9 +31,8 @@ class ApartmentRepository {
       
       // ✅ Try different endpoints to find one that works
       final endpoints = [
-        '/apartments/browse',
-        '/apartments/all', 
-        '/public/apartments',
+        '/apartments',
+        '/apartmentsHome', 
         '/apartments',  // Try regular endpoint without auth
       ];
       

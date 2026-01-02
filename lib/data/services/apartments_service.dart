@@ -31,30 +31,41 @@ class ApartmentsService {
 
     String cleanUrl = imageUrl;
     
-    // ✅ STEP 1: Remove Windows drive letter if present
-    // Example: "C:/Users/Laptop Syria/Downloads/icon.png" → "icon.png"
-    if (cleanUrl.contains(':/')) {
-      final parts = cleanUrl.split('/');
-      cleanUrl = parts.last; // Get just the filename
-      print('   Removed Windows path, now: $cleanUrl');
-    }
-
-    // ✅ STEP 2: If already a full URL, return as-is
+    // ✅ STEP 1: If already a full URL, return as-is
     if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
-      print('   Already full URL: $cleanUrl');
+      print('   ✅ Already full URL');
       return cleanUrl;
     }
 
-    // ✅ STEP 3: If starts with 'storage/', build full URL
+  
+    if (cleanUrl.contains(':\\') || cleanUrl.contains(':/')) {
+      final parts = cleanUrl.split(RegExp(r'[/\\]'));
+      cleanUrl = parts.last; // Get just the filename
+      print('   🔧 Extracted filename from Windows path: $cleanUrl');
+    }
+    
+    // Remove Unix absolute paths (/var/www/...)
+    else if (cleanUrl.startsWith('/')) {
+      final parts = cleanUrl.split('/');
+      cleanUrl = parts.last;
+      print('   🔧 Extracted filename from Unix path: $cleanUrl');
+    }
+    
+    // Remove 'storage/' prefix if present
     if (cleanUrl.startsWith('storage/')) {
-      final fullUrl = '$baseUrl/$cleanUrl';
-      print('   Built full URL: $fullUrl');
-      return fullUrl;
+      cleanUrl = cleanUrl.replaceFirst('storage/', '');
+      print('   🔧 Removed storage/ prefix: $cleanUrl');
+    }
+    
+    // Remove 'apartments/' prefix if present (we'll add it back)
+    if (cleanUrl.startsWith('apartments/')) {
+      cleanUrl = cleanUrl.replaceFirst('apartments/', '');
+      print('   🔧 Removed apartments/ prefix: $cleanUrl');
     }
 
-    // ✅ STEP 4: Otherwise, assume it's in storage/apartments/
+    // ✅ STEP 3: Build final URL
     final fullUrl = '$baseUrl/storage/apartments/$cleanUrl';
-    print('   Built storage URL: $fullUrl');
+    print('   ✅ Final URL: $fullUrl');
     return fullUrl;
   }
 

@@ -6,11 +6,6 @@ import 'package:hommie/modules/shared/views/profile_screen.dart';
 import 'package:hommie/widgets/apartment_card.dart';  
 import 'package:hommie/app/utils/app_colors.dart';
 
-// ═══════════════════════════════════════════════════════════
-// RENTER HOME SCREEN - FIXED
-// ✅ Uses UnifiedApartmentCard correctly
-// ✅ Shows favorites button for renters
-// ═══════════════════════════════════════════════════════════
 
 class RenterHomeScreen extends StatefulWidget {
   const RenterHomeScreen({super.key});

@@ -1,7 +1,7 @@
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:hommie/modules/owner/views/main_nav_view.dart';
-import 'package:hommie/modules/renter/views/renter_home.dart';
+import 'package:hommie/modules/renter/views/renter_home_screen.dart';
 import 'package:hommie/modules/shared/views/welcomescreen.dart';
 
 class StartupscreenController extends GetxController {

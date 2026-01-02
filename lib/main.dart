@@ -5,7 +5,7 @@ import 'package:hommie/app/bindings/bindings.dart';
 import 'package:hommie/data/services/auth_service.dart';
 import 'package:hommie/modules/owner/views/main_nav_view.dart';
 import 'package:hommie/modules/renter/views/apartment_details_screen.dart';
-import 'package:hommie/modules/renter/views/renter_home.dart';
+import 'package:hommie/modules/renter/views/renter_home_screen.dart';
 import 'package:hommie/modules/shared/views/startupscreen.dart';
 import 'package:hommie/modules/shared/views/welcomescreen.dart';
 
