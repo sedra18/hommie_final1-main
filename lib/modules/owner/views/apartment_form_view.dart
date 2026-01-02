@@ -41,7 +41,7 @@ class _ApartmentFormViewState extends State<ApartmentFormView> {
     'Qamishli',
   ];
   
-  final c = Get.find<PostAdController>();
+  final c = Get.put(PostAdController());
   final titleC = TextEditingController();
   final descC = TextEditingController();
   String? selectedGovernorate;
@@ -153,7 +153,7 @@ class _ApartmentFormViewState extends State<ApartmentFormView> {
                   return;
                 }
 
-                final price = double.tryParse(priceC.text.trim()) ?? 0;
+                final price = int.tryParse(priceC.text.trim()) ?? 0;
                 final rooms = int.tryParse(roomsC.text.trim()) ?? 1;
                 final size = double.tryParse(sizeC.text.trim()) ?? 0;
                 final gov = selectedGovernorate ?? "";

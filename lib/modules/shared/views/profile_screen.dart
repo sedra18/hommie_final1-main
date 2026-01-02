@@ -5,7 +5,7 @@ import 'package:hommie/app/utils/app_colors.dart';
 import 'package:hommie/data/services/approval_status_service.dart';
 
 // ═══════════════════════════════════════════════════════════
-// PROFILE SCREEN - ALWAYS SHOWS PROFILE
+// PROFILE SCREEN - FIXED
 // Shows profile content regardless of approval status
 // ═══════════════════════════════════════════════════════════
 
@@ -121,7 +121,8 @@ class ProfileScreen extends StatelessWidget {
                     title: 'Check Approval Status',
                     titleColor: AppColors.primary,
                     iconColor: AppColors.primary,
-                    onTap: () => approvalService.refreshApprovalStatus(),
+                    // ✅ FIX: Use checkApprovalStatus() instead of refreshApprovalStatus()
+                    onTap: () => approvalService.checkApprovalStatus(),
                   ),
                   const Divider(),
                 ],
@@ -164,6 +165,7 @@ class ProfileScreen extends StatelessWidget {
   // ═══════════════════════════════════════════════════════════
   // BUILD APPROVAL BADGE
   // Shows different badge based on approval status
+  // ✅ FIXED: Added .value to access RxBool
   // ═══════════════════════════════════════════════════════════
   
   Widget _buildApprovalBadge(ApprovalStatusService approvalService) {
@@ -191,7 +193,8 @@ class ProfileScreen extends StatelessWidget {
           ],
         ),
       );
-    } else if (approvalService.isPending) {
+    } else if (approvalService.isPending.value) {
+      // ✅ FIX: Added .value to access RxBool
       // Pending - Orange badge
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -215,7 +218,8 @@ class ProfileScreen extends StatelessWidget {
           ],
         ),
       );
-    } else if (approvalService.isRejected) {
+    } else if (approvalService.isRejected.value) {
+      // ✅ FIX: Added .value to access RxBool
       // Rejected - Red badge
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

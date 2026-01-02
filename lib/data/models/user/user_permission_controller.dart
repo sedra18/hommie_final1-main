@@ -3,12 +3,17 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:hommie/app/utils/app_colors.dart';
 
+// ═══════════════════════════════════════════════════════════
+// USER PERMISSIONS CONTROLLER - FIXED
+// ✅ Owners can book apartments (just not their own)
+// ✅ Renters can book apartments
+// ✅ Only owners can post apartments
+// ═══════════════════════════════════════════════════════════
 
 class UserPermissionsController extends GetxController {
   final box = GetStorage();
 
-  // Current user approval status
-  final RxBool isApproved = false.obs;
+  final RxBool isApproved = true.obs;
   final RxString userRole = ''.obs;
   final RxBool isLoading = false.obs;
 
@@ -20,13 +25,11 @@ class UserPermissionsController extends GetxController {
     print('🔐 [UserPermissions] Controller Initialized');
     print('═══════════════════════════════════════════════════════════');
     
-    // Load cached approval status
     loadApprovalStatus();
   }
 
-  /// Load approval status from storage
   void loadApprovalStatus() {
-    final approved = box.read('is_approved') ?? false;
+    final approved = box.read('is_approved') ?? true;
     final role = box.read('role') ?? '';
     
     isApproved.value = approved;
@@ -39,12 +42,10 @@ class UserPermissionsController extends GetxController {
     print('   Can Post: $canPostApartments');
   }
 
-  /// Update approval status (called after login/signup)
   void updateApprovalStatus(bool approved, String role) {
     isApproved.value = approved;
     userRole.value = role;
     
-    // Save to storage
     box.write('is_approved', approved);
     box.write('role', role);
 
@@ -56,16 +57,17 @@ class UserPermissionsController extends GetxController {
     print('   Can Post: $canPostApartments');
   }
 
-
-
-  
+  // ═══════════════════════════════════════════════════════════
+  // ✅ FIXED: Both owners and renters can book apartments
+  // ═══════════════════════════════════════════════════════════
   bool get canBook {
-    final can = isApproved.value && userRole.value == 'renter';
+    // Anyone who is approved can book (owners OR renters)
+    final can = isApproved.value && (userRole.value == 'renter' || userRole.value == 'owner');
     print('🔍 [UserPermissions] Can book: $can (approved=${isApproved.value}, role=${userRole.value})');
     return can;
   }
 
-  /// Can user post apartments? (Owner + Approved)
+  /// Can user post apartments? (Owner + Approved only)
   bool get canPostApartments {
     final can = isApproved.value && userRole.value == 'owner';
     print('🔍 [UserPermissions] Can post apartments: $can (approved=${isApproved.value}, role=${userRole.value})');
@@ -87,16 +89,60 @@ class UserPermissionsController extends GetxController {
     return userRole.value == 'renter';
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // ✅ UPDATED: Check if user can book a specific apartment
+  // Prevents owners from booking their own apartments
+  // ═══════════════════════════════════════════════════════════
+  bool canBookApartment(int? apartmentOwnerId) {
+    // Must be approved first
+    if (!isApproved.value) {
+      return false;
+    }
+    
+    // Get current user ID from storage
+    final currentUserId = box.read('user_id') as int?;
+    
+    // If we don't know the apartment owner, allow booking
+    // (The backend will validate ownership)
+    if (apartmentOwnerId == null || currentUserId == null) {
+      return isApproved.value;
+    }
+    
+    // Can't book your own apartment
+    if (apartmentOwnerId == currentUserId) {
+      print('🚫 Cannot book own apartment');
+      return false;
+    }
+    
+    // Approved users can book other people's apartments
+    return true;
+  }
+
   /// Check permission and show message if denied
-  bool checkPermission(String action, {bool showMessage = true}) {
+  bool checkPermission(String action, {bool showMessage = true, int? apartmentOwnerId}) {
     bool hasPermission = false;
     String? denialMessage;
 
     switch (action.toLowerCase()) {
       case 'book':
-        hasPermission = canBook;
-        if (!hasPermission && isRenter) {
-          denialMessage = '⏳ Your account is pending approval.\nYou cannot book apartments yet.';
+        // ✅ FIXED: Check if user can book this specific apartment
+        if (apartmentOwnerId != null) {
+          hasPermission = canBookApartment(apartmentOwnerId);
+          
+          if (!hasPermission && isApproved.value) {
+            final currentUserId = box.read('user_id') as int?;
+            if (apartmentOwnerId == currentUserId) {
+              denialMessage = '❌ You cannot book your own apartment.';
+            }
+          } else if (!hasPermission && !isApproved.value) {
+            denialMessage = '⏳ Your account is pending approval.\nYou cannot book apartments yet.';
+          }
+        } else {
+          // General booking permission (no specific apartment)
+          hasPermission = canBook;
+          if (!hasPermission) {
+            denialMessage = '⏳ Your account is pending approval.\nYou cannot book apartments yet.';
+          }
         }
         break;
         
@@ -105,6 +151,8 @@ class UserPermissionsController extends GetxController {
         hasPermission = canPostApartments;
         if (!hasPermission && isOwner) {
           denialMessage = '⏳ Your account is pending approval.\nYou cannot post apartments yet.';
+        } else if (!hasPermission && isRenter) {
+          denialMessage = '❌ Only property owners can post apartments.';
         }
         break;
         
@@ -118,11 +166,14 @@ class UserPermissionsController extends GetxController {
       print('   Reason: $denialMessage');
       
       Get.snackbar(
-        '⏳ Pending Approval',
+        denialMessage.contains('⏳') ? '⏳ Pending Approval' : '❌ Not Allowed',
         denialMessage,
-        backgroundColor: Colors.orange,
+        backgroundColor: denialMessage.contains('⏳') ? Colors.orange : Colors.red,
         colorText: Colors.white,
-        icon: const Icon(Icons.hourglass_empty, color: Colors.white),
+        icon: Icon(
+          denialMessage.contains('⏳') ? Icons.hourglass_empty : Icons.block,
+          color: Colors.white,
+        ),
         duration: const Duration(seconds: 4),
         snackPosition: SnackPosition.BOTTOM,
         margin: const EdgeInsets.all(16),
@@ -151,7 +202,6 @@ class UserPermissionsController extends GetxController {
     );
   }
 
-  /// Clear approval status (on logout)
   void clearApprovalStatus() {
     isApproved.value = false;
     userRole.value = '';

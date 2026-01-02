@@ -1,8 +1,9 @@
 import 'package:get_storage/get_storage.dart';
 
 // ═══════════════════════════════════════════════════════════
-// TOKEN STORAGE SERVICE - ENHANCED
-// Stores and retrieves authentication tokens and user info
+// TOKEN STORAGE SERVICE - COMPLETE
+// ✅ Added missing methods: saveToken, saveUserId, saveRole
+// ✅ All methods from original + new convenience methods
 // ═══════════════════════════════════════════════════════════
 
 class TokenStorageService {
@@ -28,6 +29,16 @@ class TokenStorageService {
       await _storage.write(_refreshTokenKey, refreshToken);
     }
     print('✅ Tokens saved successfully');
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // SAVE SINGLE TOKEN (CONVENIENCE METHOD)
+  // ✅ NEW: Added for compatibility with login controller
+  // ═══════════════════════════════════════════════════════════
+  
+  Future<void> saveToken(String token) async {
+    await _storage.write(_accessTokenKey, token);
+    print('✅ Access token saved');
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -64,6 +75,26 @@ class TokenStorageService {
       await _storage.write(_userEmailKey, email);
     }
     print('✅ User info saved: ID=$userId, Role=$role');
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // SAVE USER ID (CONVENIENCE METHOD)
+  // ✅ NEW: Added for compatibility with login controller
+  // ═══════════════════════════════════════════════════════════
+  
+  Future<void> saveUserId(int userId) async {
+    await _storage.write(_userIdKey, userId);
+    print('✅ User ID saved: $userId');
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // SAVE ROLE (CONVENIENCE METHOD)
+  // ✅ NEW: Added for compatibility with login controller
+  // ═══════════════════════════════════════════════════════════
+  
+  Future<void> saveRole(String role) async {
+    await _storage.write(_userRoleKey, role);
+    print('✅ User role saved: $role');
   }
 
   // ═══════════════════════════════════════════════════════════

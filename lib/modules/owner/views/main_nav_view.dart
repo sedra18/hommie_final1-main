@@ -1,3 +1,4 @@
+import 'package:convex_bottom_bar/convex_bottom_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hommie/app/utils/app_colors.dart';
@@ -9,60 +10,58 @@ import 'package:hommie/modules/shared/views/favorites_screen.dart';
 import 'package:hommie/modules/shared/views/profile_screen.dart';
 
 // ═══════════════════════════════════════════════════════════
-// MAIN NAV VIEW - FIXED
-// No circular reference - this is the ROOT container
+// ALTERNATIVE FIX - Using StatefulWidget
+// More reliable with ConvexAppBar's internal state management
 // ═══════════════════════════════════════════════════════════
 
-class MainNavView extends StatelessWidget {
+class MainNavView extends StatefulWidget {
   const MainNavView({super.key});
 
   @override
+  State<MainNavView> createState() => _MainNavViewState();
+}
+
+class _MainNavViewState extends State<MainNavView> {
+  final nav = Get.put(NavController());
+
+  final pages = [
+    OwnerHomeScreen(),
+    ChatScreen(),
+    FavoritesScreen(),
+    PostAdScreen(),
+    ProfileScreen(),
+  ];
+
+  @override
   Widget build(BuildContext context) {
-    final nav = Get.put(NavController());
-
-    // All pages WITHOUT bottom nav bar
-    final pages =  [
-      OwnerHomeScreen(),
-      ChatScreen(),
-      FavoritesScreen(),
-      PostAdScreen(),
-      ProfileScreen(),
-    ];
-
     return Obx(() {
       return Scaffold(
-        // Display the selected page
         body: pages[nav.currentIndex.value],
-        
-        // Bottom navigation bar
-        bottomNavigationBar: BottomNavigationBar(
+        bottomNavigationBar: ConvexAppBar(
+          style: TabStyle.fixedCircle,
           backgroundColor: AppColors.primary,
-          currentIndex: nav.currentIndex.value,
-          onTap: nav.changeTab,
-          type: BottomNavigationBarType.fixed,
-          selectedItemColor: Colors.white,
-          unselectedItemColor: Colors.white70,
+          color: AppColors.backgroundLight.withOpacity(0.6),
+          activeColor: AppColors.backgroundLight,
+          elevation: 8,
+          curveSize: 90,
+          top: -28,
+          height: 60,
+          
+          // Current index synced with GetX
+          initialActiveIndex: nav.currentIndex.value,
+          
+          onTap: (index) {
+            setState(() {
+              nav.changeTab(index);
+            });
+          },
+          
           items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home, color: AppColors.backgroundLight),
-              label: "Home",
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.message, color: AppColors.backgroundLight),
-              label: "Messages",
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.favorite, color: AppColors.backgroundLight),
-              label: "Favorite",
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.post_add, color: AppColors.backgroundLight),
-              label: "PostAd",
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person, color: AppColors.backgroundLight),
-              label: "Profile",
-            ),
+            TabItem(icon: Icons.home_outlined, title: 'Home'),
+            TabItem(icon: Icons.message_outlined, title: 'Messages'),
+            TabItem(icon: Icons.favorite_border, title: 'Favorite'),
+            TabItem(icon: Icons.post_add_outlined, title: 'Post Ad'),
+            TabItem(icon: Icons.person_outline, title: 'Profile'),
           ],
         ),
       );

@@ -1,6 +1,6 @@
-
 import 'package:flutter/material.dart';
 import 'package:hommie/data/models/bookings/bookings_request_model.dart';
+
 
 
 class BookingRequestCard extends StatelessWidget {
@@ -19,7 +19,11 @@ class BookingRequestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    //  Get user name with fallback
+    final userName = request.userName ?? 'Unknown User';
+    
     return Container(
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -47,7 +51,10 @@ class BookingRequestCard extends StatelessWidget {
                       : null,
                   child: request.userAvatar == null
                       ? Text(
-                          request.userName[0].toUpperCase(),
+                          //  Safe access with fallback
+                          userName.isNotEmpty 
+                              ? userName[0].toUpperCase() 
+                              : 'U',
                           style: const TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
@@ -63,14 +70,19 @@ class BookingRequestCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // User name
                       Text(
-                        request.userName,
+                        userName,  //  Using non-nullable variable
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
+                      
+                      // Date range
                       Text(
                         request.dateRange,
                         style: TextStyle(
@@ -79,6 +91,8 @@ class BookingRequestCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 2),
+                      
+                      // Payment method
                       Row(
                         children: [
                           Icon(
@@ -97,6 +111,29 @@ class BookingRequestCard extends StatelessWidget {
                           ),
                         ],
                       ),
+                      
+                      // Phone number (if available)
+                      if (request.userPhone != null && request.userPhone!.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.phone,
+                                size: 14,
+                                color: Colors.grey[600],
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                request.userPhone!,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -112,6 +149,32 @@ class BookingRequestCard extends StatelessWidget {
           ),
 
           const Divider(height: 1),
+
+          // Booking details (optional - if you want to show more info)
+          if (request.totalPrice != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Total Amount',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  Text(
+                    '\$${request.totalPrice!.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue,
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
           // Action buttons
           Padding(

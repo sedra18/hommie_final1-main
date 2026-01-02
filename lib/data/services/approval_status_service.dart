@@ -1,232 +1,387 @@
+import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:hommie/helpers/base_url.dart';
 import 'package:http/http.dart' as http;
-import 'package:hommie/data/services/token_storage_service.dart';
+import 'package:hommie/app/utils/app_colors.dart';
+import 'package:flutter/material.dart';
 
 // ═══════════════════════════════════════════════════════════
-// APPROVAL STATUS SERVICE - FIXED VERSION
-// Properly refreshes UI after approval status changes
+// APPROVAL STATUS SERVICE - WITH NULL SAFETY
+// Defaults to 'approved' if backend doesn't have approval_status column
 // ═══════════════════════════════════════════════════════════
 
 class ApprovalStatusService extends GetxService {
-  static  String _baseUrl = '${BaseUrl.pubBaseUrl}/api'; // ✅ Use 10.0.2.2 for emulator
+  final box = GetStorage();
+  Timer? _pollTimer;
   
-  // ✅ Observable (Rx) instead of static variable
-  final isApproved = false.obs;
-  final _isCheckingApproval = false.obs;
-  final _userRole = ''.obs;
-  final _approvalStatus = 'unknown'.obs; // 'pending', 'approved', 'rejected', 'unknown'
+  // Observable approval status
+  final isApproved = true.obs; // ✅ Default to approved
+  final isPolling = false.obs;
+  final isCheckingApproval = false.obs;
+  final isPending = false.obs;
+  final isRejected = false.obs;
+  final userRole = ''.obs;
   
-  bool get isCheckingApproval => _isCheckingApproval.value;
-  String get userRole => _userRole.value;
-  String get approvalStatus => _approvalStatus.value;
+  // User ID from token storage
+  int? get userId => box.read('user_id');
   
-  bool get isPending => _approvalStatus.value == 'pending';
-  bool get isRejected => _approvalStatus.value == 'rejected';
-
-  // ═══════════════════════════════════════════════════════════
-  // CHECK USER APPROVAL STATUS
-  // Called on login and can be refreshed on demand
-  // ═══════════════════════════════════════════════════════════
+  // Polling interval (check every 30 seconds)
+  static const pollInterval = Duration(seconds: 30);
   
-  Future<void> checkApprovalStatus() async {
-    try {
-      _isCheckingApproval.value = true;
-      
-      final tokenService = Get.put(TokenStorageService());
-      final token = await tokenService.getAccessToken();
-      
-      if (token == null) {
-        print('⚠️ No token found, cannot check approval status');
-        _approvalStatus.value = 'unknown';
-        isApproved.value = false;
-        return;
-      }
-
-      print('🔍 Checking approval status...');
-      
-      final response = await http.get(
-        Uri.parse('$_baseUrl/user/approval-status'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        
-        // Parse approval status from backend
-        final status = data['approval_status'] ?? 'unknown';
-        _userRole.value = data['role'] ?? '';
-        _approvalStatus.value = status.toString().toLowerCase();
-        
-        // Update isApproved observable
-        final wasApproved = isApproved.value;
-        isApproved.value = (_approvalStatus.value == 'approved');
-        
-        print('✅ Approval Status: ${_approvalStatus.value}');
-        print('✅ User Role: ${_userRole.value}');
-        print('✅ Is Approved: ${isApproved.value}');
-        
-        // ✅ Force UI update if status changed
-        if (wasApproved != isApproved.value) {
-          print('🔄 Approval status changed! Forcing UI update...');
-          isApproved.refresh();
-        }
-      } else if (response.statusCode == 404) {
-        print('⚠️ Approval endpoint not found (404)');
-        _approvalStatus.value = 'unknown';
-        isApproved.value = false;
-      } else {
-        print('⚠️ Failed to check approval status: ${response.statusCode}');
-        _approvalStatus.value = 'unknown';
-        isApproved.value = false;
-      }
-    } catch (e) {
-      print('❌ Error checking approval status: $e');
-      _approvalStatus.value = 'unknown';
-      isApproved.value = false;
-    } finally {
-      _isCheckingApproval.value = false;
+  @override
+  void onInit() {
+    super.onInit();
+    
+    // Initialize from storage (default to approved if not set)
+    final storedApproval = box.read('is_approved');
+    final storedRole = box.read('user_role');
+    final storedStatus = box.read('approval_status');
+    
+    // ✅ Default to approved if null
+    isApproved.value = storedApproval ?? true;
+    userRole.value = storedRole ?? '';
+    
+    // Set pending/rejected flags based on stored status
+    if (storedStatus != null) {
+      isPending.value = storedStatus == 'pending';
+      isRejected.value = storedStatus == 'rejected';
     }
+    
+    print('');
+    print('═══════════════════════════════════════════════════════════');
+    print('👁️  APPROVAL STATUS SERVICE - INITIALIZED');
+    print('   Initial approval status: ${isApproved.value}');
+    print('   User role: ${userRole.value}');
+    print('   Is pending: ${isPending.value}');
+    print('   Is rejected: ${isRejected.value}');
+    print('═══════════════════════════════════════════════════════════');
   }
-
-  // ═══════════════════════════════════════════════════════════
-  // REFRESH APPROVAL STATUS
-  // Used in PendingApprovalScreen and when user manually refreshes
-  // ═══════════════════════════════════════════════════════════
   
-  Future<void> refreshApprovalStatus() async {
-    print('🔄 Manual refresh triggered...');
-    
-    await checkApprovalStatus();
-    
-    // ✅ Force UI rebuild
-    await Future.delayed(const Duration(milliseconds: 100));
-    
-    // Show appropriate message based on new status
-    if (isApproved.value) {
-      Get.snackbar(
-        'Approved!',
-        'Your account has been approved. You can now access all features.',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: const Color(0xFF22C55E),
-        colorText: const Color(0xFFFFFFFF),
-        icon: const Icon(
-          Icons.check_circle,
-          color: Color(0xFFFFFFFF),
-        ),
-        duration: const Duration(seconds: 3),
-      );
-      
-      // ✅ Close any pending approval dialogs/screens
-      if (Get.isDialogOpen ?? false) {
-        Get.back();
-      }
-      
-      // ✅ Trigger complete app refresh
-      print('🔄 Triggering app-wide refresh...');
-      Get.forceAppUpdate();
-      
-    } else if (isPending) {
-      Get.snackbar(
-        'Still Pending',
-        'Your account is still pending approval. Please check back later.',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: const Color(0xFFF59E0B),
-        colorText: const Color(0xFFFFFFFF),
-        icon: const Icon(
-          Icons.schedule,
-          color: Color(0xFFFFFFFF),
-        ),
-      );
-    } else if (isRejected) {
-      showRejectionMessage();
-    }
+  // ═══════════════════════════════════════════════════════════
+  // CAN PERFORM ACTION
+  // Check if user can perform actions (approved)
+  // ═══════════════════════════════════════════════════════════
+  bool canPerformAction() {
+    return isApproved.value;
   }
-
-  // ═══════════════════════════════════════════════════════════
-  // MANUAL REFRESH (for PendingApprovalWidget)
-  // Same as refreshApprovalStatus but different name for compatibility
-  // ═══════════════════════════════════════════════════════════
   
+  // ═══════════════════════════════════════════════════════════
+  // MANUAL REFRESH
+  // Called when user manually refreshes
+  // ═══════════════════════════════════════════════════════════
   Future<void> manualRefresh() async {
-    await refreshApprovalStatus();
+    print('🔄 Manual refresh triggered');
+    await checkApprovalStatus();
   }
-
-  // ═══════════════════════════════════════════════════════════
-  // SHOW APPROVAL PENDING MESSAGE
-  // Returns snackbar message based on user role
-  // ═══════════════════════════════════════════════════════════
   
+  // ═══════════════════════════════════════════════════════════
+  // SHOW PENDING APPROVAL MESSAGE
+  // Shows snackbar when user is pending
+  // ═══════════════════════════════════════════════════════════
   void showPendingApprovalMessage() {
-    final message = _userRole.value == 'owner'
-        ? 'Your owner account is pending approval. You cannot add apartments or access certain features until approved.'
-        : 'Your renter account is pending approval. You cannot book apartments or access certain features until approved.';
+    final isOwner = userRole.value.toLowerCase() == 'owner';
     
     Get.snackbar(
-      'Approval Pending',
-      message,
+      '⏳ Pending Approval',
+      isOwner
+          ? 'Your account is pending approval.\nYou can view the app but cannot post apartments yet.'
+          : 'Your account is pending approval.\nYou can browse apartments but cannot book yet.',
       snackPosition: SnackPosition.TOP,
+      backgroundColor: const Color(0xFFFFF59E0B),
+      colorText: Colors.white,
       duration: const Duration(seconds: 4),
-      backgroundColor: const Color(0xFFF59E0B),
-      colorText: const Color(0xFFFFFFFF),
-      icon: const Icon(
-        Icons.schedule,
-        color: Color(0xFFFFFFFF),
-      ),
+      icon: const Icon(Icons.schedule, color: Colors.white, size: 32),
+      margin: const EdgeInsets.all(16),
     );
   }
-
+  
   // ═══════════════════════════════════════════════════════════
   // SHOW REJECTION MESSAGE
+  // Shows snackbar when user is rejected
   // ═══════════════════════════════════════════════════════════
-  
   void showRejectionMessage() {
     Get.snackbar(
-      'Account Rejected',
-      'Your account has been rejected. Please contact support for more information.',
+      '❌ Application Rejected',
+      'Your account application was rejected.\nPlease contact support for more information.',
       snackPosition: SnackPosition.TOP,
-      duration: const Duration(seconds: 4),
-      backgroundColor: const Color(0xFFEF4444),
-      colorText: const Color(0xFFFFFFFF),
-      icon: const Icon(
-        Icons.cancel,
-        color: Color(0xFFFFFFFF),
-      ),
+      backgroundColor: AppColors.failure,
+      colorText: Colors.white,
+      duration: const Duration(seconds: 5),
+      icon: const Icon(Icons.cancel, color: Colors.white, size: 32),
+      margin: const EdgeInsets.all(16),
     );
   }
-
-  // ═══════════════════════════════════════════════════════════
-  // RESET STATUS (for logout)
-  // ═══════════════════════════════════════════════════════════
   
-  void resetStatus() {
-    _approvalStatus.value = 'unknown';
-    isApproved.value = false;
-    _userRole.value = '';
-    print('🔄 Approval status reset');
+  // ═══════════════════════════════════════════════════════════
+  // START POLLING
+  // ═══════════════════════════════════════════════════════════
+  void startPolling() {
+    if (isApproved.value) {
+      print('✅ User already approved - no need to poll');
+      return;
+    }
+    
+    if (isPolling.value) {
+      print('⚠️  Already polling');
+      return;
+    }
+    
+    isPolling.value = true;
+    print('🔄 Starting approval polling...');
+    
+    // Check immediately
+    checkApprovalStatus();
+    
+    // Then check periodically
+    _pollTimer = Timer.periodic(pollInterval, (timer) {
+      checkApprovalStatus();
+    });
   }
-
-  // ═══════════════════════════════════════════════════════════
-  // CHECK IF USER CAN PERFORM ACTION
-  // Returns true if approved, shows message if not
-  // ═══════════════════════════════════════════════════════════
   
-  bool canPerformAction() {
-    if (isPending) {
-      showPendingApprovalMessage();
-      return false;
+  // ═══════════════════════════════════════════════════════════
+  // STOP POLLING
+  // ═══════════════════════════════════════════════════════════
+  void stopPolling() {
+    if (_pollTimer != null) {
+      _pollTimer!.cancel();
+      _pollTimer = null;
+      isPolling.value = false;
+      
+      print('🛑 Approval polling stopped');
+    }
+  }
+  
+  // ═══════════════════════════════════════════════════════════
+  // CHECK APPROVAL STATUS - WITH NULL SAFETY
+  // ✅ Defaults to 'approved' if backend returns null
+  // ═══════════════════════════════════════════════════════════
+  Future<void> checkApprovalStatus() async {
+    try {
+      isCheckingApproval.value = true;
+      
+      final token = box.read('access_token');
+      if (token == null) {
+        print('⚠️  No token - cannot check approval');
+        stopPolling();
+        isCheckingApproval.value = false;
+        return;
+      }
+      
+      print('🔍 Checking approval status...');
+      
+      // ✅ TRY ENDPOINT 1: /api/user/approval-status
+      final approvalUrl = Uri.parse('${BaseUrl.pubBaseUrl}/api/user/approval-status');
+      
+      try {
+        final approvalResponse = await http.get(
+          approvalUrl,
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        ).timeout(const Duration(seconds: 10));
+        
+        if (approvalResponse.statusCode == 200) {
+          final data = jsonDecode(approvalResponse.body);
+          
+          print('📥 Approval response: $data');
+          
+          // ✅ Get approval status, default to 'approved' if null
+          final approvalStatus = data['approval_status']?.toString().toLowerCase() ?? 'approved';
+          final role = data['role']?.toString();
+          
+          print('   approval_status: $approvalStatus');
+          print('   role: $role');
+          
+          _updateApprovalStatus(approvalStatus, role);
+          
+          isCheckingApproval.value = false;
+          return;
+        } else if (approvalResponse.statusCode == 404) {
+          print('! Approval endpoint not found (404) - defaulting to approved');
+          
+          // ✅ If endpoint doesn't exist, default to approved
+          _updateApprovalStatus('approved', userRole.value);
+          isCheckingApproval.value = false;
+          return;
+        }
+      } catch (e) {
+        print('⚠️  Approval endpoint error: $e');
+      }
+      
+      // ✅ FALLBACK: Try /api/user
+      print('🔄 Trying fallback endpoint: /api/user');
+      
+      final userUrl = Uri.parse('${BaseUrl.pubBaseUrl}/api/user');
+      
+      final userResponse = await http.get(
+        userUrl,
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 10));
+      
+      if (userResponse.statusCode == 200) {
+        final data = jsonDecode(userResponse.body);
+        
+        print('📥 User response: $data');
+        
+        String? approvalStatus;
+        String? role;
+        
+        // Try different response structures
+        if (data['approval_status'] != null) {
+          approvalStatus = data['approval_status'].toString().toLowerCase();
+        } else if (data['user'] != null && data['user']['approval_status'] != null) {
+          approvalStatus = data['user']['approval_status'].toString().toLowerCase();
+        }
+        
+        if (data['role'] != null) {
+          role = data['role'].toString();
+        } else if (data['user'] != null && data['user']['role'] != null) {
+          role = data['user']['role'].toString();
+        }
+        
+        print('   approval_status: $approvalStatus');
+        print('   role: $role');
+        
+        // ✅ Default to 'approved' if null
+        _updateApprovalStatus(approvalStatus ?? 'approved', role);
+      } else {
+        print('❌ Failed to check approval: ${userResponse.statusCode}');
+        print('⚠️  Defaulting to approved status');
+        
+        // ✅ If both endpoints fail, keep current status or default to approved
+        if (!box.hasData('is_approved')) {
+          _updateApprovalStatus('approved', userRole.value);
+        }
+      }
+      
+    } catch (e) {
+      print('❌ Error checking approval status: $e');
+      print('⚠️  Defaulting to approved status');
+      
+      // ✅ On error, keep current status or default to approved
+      if (!box.hasData('is_approved')) {
+        _updateApprovalStatus('approved', userRole.value);
+      }
+    } finally {
+      isCheckingApproval.value = false;
+    }
+  }
+  
+  // ═══════════════════════════════════════════════════════════
+  // UPDATE APPROVAL STATUS (private helper)
+  // ═══════════════════════════════════════════════════════════
+  void _updateApprovalStatus(String? approvalStatus, String? role) {
+    // ✅ Default to approved if status is null
+    final status = approvalStatus ?? 'approved';
+    
+    bool newApprovalStatus = status == 'approved';
+    bool newPendingStatus = status == 'pending';
+    bool newRejectedStatus = status == 'rejected';
+    
+    // Update role
+    if (role != null && role.isNotEmpty) {
+      userRole.value = role;
+      box.write('user_role', role);
     }
     
-    if (isRejected) {
-      showRejectionMessage();
-      return false;
-    }
+    // Save approval status string
+    box.write('approval_status', status);
     
-    return isApproved.value;
+    // Check if status changed
+    if (newApprovalStatus != isApproved.value ||
+        newPendingStatus != isPending.value ||
+        newRejectedStatus != isRejected.value) {
+      print('');
+      print('═══════════════════════════════════════════════════════════');
+      print('🎉 APPROVAL STATUS CHANGED!');
+      print('   Old approved: ${isApproved.value}');
+      print('   New approved: $newApprovalStatus');
+      print('   Status: $status');
+      print('═══════════════════════════════════════════════════════════');
+      
+      // Update all status flags
+      isApproved.value = newApprovalStatus;
+      isPending.value = newPendingStatus;
+      isRejected.value = newRejectedStatus;
+      
+      box.write('is_approved', newApprovalStatus);
+      
+      if (newApprovalStatus) {
+        stopPolling();
+        
+        // Only show snackbar if changing from not-approved to approved
+        if (newPendingStatus || newRejectedStatus) {
+          Get.snackbar(
+            '🎉 Approved!',
+            'Your account has been approved! You can now access all features.',
+            snackPosition: SnackPosition.TOP,
+            backgroundColor: AppColors.success,
+            colorText: Colors.white,
+            duration: const Duration(seconds: 5),
+            icon: const Icon(Icons.check_circle, color: Colors.white, size: 32),
+            margin: const EdgeInsets.all(16),
+          );
+        }
+      } else if (newRejectedStatus) {
+        stopPolling();
+        showRejectionMessage();
+      }
+    } else {
+      print('✅ Approval Status: $status');
+      print('   Is Approved: ${isApproved.value}');
+      print('   Is Pending: ${isPending.value}');
+      print('   Is Rejected: ${isRejected.value}');
+    }
+  }
+  
+  // ═══════════════════════════════════════════════════════════
+  // MANUAL UPDATE (called after login)
+  // ═══════════════════════════════════════════════════════════
+  void updateApprovalStatus(bool approved, String role) {
+    print('📝 Manually updating approval status:');
+    print('   Approved: $approved');
+    print('   Role: $role');
+    
+    isApproved.value = approved;
+    userRole.value = role;
+    isPending.value = !approved;
+    
+    box.write('is_approved', approved);
+    box.write('user_role', role);
+    box.write('approval_status', approved ? 'approved' : 'pending');
+    
+    // Start polling if not approved
+    if (!approved) {
+      startPolling();
+    }
+  }
+  
+  // ═══════════════════════════════════════════════════════════
+  // CLEAR STATUS (on logout)
+  // ═══════════════════════════════════════════════════════════
+  void clearStatus() {
+    print('🧹 Clearing approval status');
+    
+    stopPolling();
+    isApproved.value = true; // Reset to approved
+    isPending.value = false;
+    isRejected.value = false;
+    userRole.value = '';
+    
+    box.remove('is_approved');
+    box.remove('user_role');
+    box.remove('approval_status');
+  }
+  
+  @override
+  void onClose() {
+    stopPolling();
+    super.onClose();
   }
 }

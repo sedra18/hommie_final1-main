@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:hommie/modules/renter/controllers/home_controller.dart';
+import 'package:hommie/modules/renter/controllers/renter_home_controller.dart';
 import 'package:hommie/data/models/apartment/apartment_model.dart';
 import 'package:hommie/app/utils/app_colors.dart';
 import 'package:hommie/data/services/apartments_service.dart';

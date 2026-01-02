@@ -2,34 +2,39 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hommie/data/models/apartment/apartment_model.dart';
 
-
 // ═══════════════════════════════════════════════════════════
-// OWNER POST AD APARTMENT CARD
+// OWNER POST AD APARTMENT CARD - WITH NAVIGATION
 // Used in: Owner's Post Ad Page
-// Features: Edit button, Delete button, Apartment details
-// Only visible to apartment owner
+// Features: Navigate to details, Edit, Delete
 // ═══════════════════════════════════════════════════════════
 
 class ApartmentCardOwnerPostAd extends StatelessWidget {
   final ApartmentModel apartment;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
-  final VoidCallback? onTap;
 
   const ApartmentCardOwnerPostAd({
     super.key,
     required this.apartment,
     required this.onEdit,
     required this.onDelete,
-    this.onTap,
   });
+
+  void _navigateToDetails() {
+    print('🏠 [POST AD] Navigating to apartment details: ${apartment.title} (ID: ${apartment.id})');
+    
+    Get.toNamed(
+      '/apartment-details',
+      arguments: {'apartmentId': apartment.id},
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
     return GestureDetector(
-      onTap: onTap,
+      onTap: _navigateToDetails,
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
@@ -62,14 +67,28 @@ class ApartmentCardOwnerPostAd extends StatelessWidget {
                         return Container(
                           height: 180,
                           color: Colors.grey[300],
-                          child: const Icon(Icons.image_not_supported, size: 50),
+                          child: const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.image_not_supported, size: 50, color: Colors.grey),
+                              SizedBox(height: 8),
+                              Text('Image not available', style: TextStyle(color: Colors.grey)),
+                            ],
+                          ),
                         );
                       },
                     )
                   : Container(
                       height: 180,
                       color: Colors.grey[300],
-                      child: const Icon(Icons.image, size: 50),
+                      child: const Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.image, size: 50, color: Colors.grey),
+                          SizedBox(height: 8),
+                          Text('No image', style: TextStyle(color: Colors.grey)),
+                        ],
+                      ),
                     ),
             ),
 
@@ -171,7 +190,10 @@ class ApartmentCardOwnerPostAd extends StatelessWidget {
                       // Edit Button
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: onEdit,
+                          onPressed: () {
+                            print('✏️ Edit button pressed for apartment: ${apartment.title}');
+                            onEdit();
+                          },
                           icon: const Icon(Icons.edit_outlined, size: 18),
                           label: const Text('Edit'),
                           style: OutlinedButton.styleFrom(
@@ -189,7 +211,10 @@ class ApartmentCardOwnerPostAd extends StatelessWidget {
                       // Delete Button
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: () => _showDeleteConfirmation(context),
+                          onPressed: () {
+                            print('🗑️ Delete button pressed for apartment: ${apartment.title}');
+                            _showDeleteConfirmation(context);
+                          },
                           icon: const Icon(Icons.delete_outline, size: 18),
                           label: const Text('Delete'),
                           style: OutlinedButton.styleFrom(
@@ -256,42 +281,60 @@ class ApartmentCardOwnerPostAd extends StatelessWidget {
       builder: (context) => AlertDialog(
         backgroundColor: isDark ? const Color(0xFF2D2438) : Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(
-          'Delete Apartment',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: isDark ? Colors.white : Colors.black87,
-          ),
+        title: Row(
+          children: [
+            Icon(
+              Icons.warning_amber_rounded,
+              color: Colors.orange,
+              size: 28,
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Delete Apartment',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : Colors.black87,
+              ),
+            ),
+          ],
         ),
         content: Text(
-          'Are you sure you want to delete "${apartment.title}"? This action cannot be undone.',
+          'Are you sure you want to delete "${apartment.title}"?\n\nThis action cannot be undone.',
           style: TextStyle(
             color: isDark ? Colors.white70 : Colors.black87,
+            height: 1.5,
           ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () {
+              print('❌ Delete cancelled');
+              Navigator.of(context).pop();
+            },
             child: Text(
               'Cancel',
               style: TextStyle(
                 color: isDark ? Colors.white70 : Colors.grey[700],
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
-          ElevatedButton(
+          ElevatedButton.icon(
             onPressed: () {
+              print('✅ Delete confirmed for apartment: ${apartment.title}');
               Navigator.of(context).pop();
               onDelete();
             },
+            icon: const Icon(Icons.delete_outline, size: 18),
+            label: const Text('Delete'),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             ),
-            child: const Text('Delete'),
           ),
         ],
       ),

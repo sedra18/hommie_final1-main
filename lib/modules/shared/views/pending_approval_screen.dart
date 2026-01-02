@@ -4,7 +4,7 @@ import 'package:hommie/data/services/approval_status_service.dart';
 import 'package:hommie/app/utils/app_colors.dart';
 
 // ═══════════════════════════════════════════════════════════
-// PENDING APPROVAL SCREEN
+// PENDING APPROVAL SCREEN - FIXED
 // Shows when user tries to access features without approval
 // ═══════════════════════════════════════════════════════════
 
@@ -24,6 +24,7 @@ class PendingApprovalScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Approval Required'),
         backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
       ),
       body: Center(
         child: Padding(
@@ -61,8 +62,9 @@ class PendingApprovalScreen extends StatelessWidget {
               
               // Description
               Obx(() {
+                // ✅ FIX: Access .value to get String from RxString
                 return Text(
-                  _getDescriptionText(approvalService.userRole),
+                  _getDescriptionText(approvalService.userRole.value),
                   style: TextStyle(
                     fontSize: 16,
                     color: Colors.grey.shade700,
@@ -117,7 +119,8 @@ class PendingApprovalScreen extends StatelessWidget {
               
               // Refresh Button
               Obx(() {
-                final isChecking = approvalService.isCheckingApproval;
+                // ✅ FIX: Access .value to get bool from RxBool
+                final isChecking = approvalService.isCheckingApproval.value;
                 
                 return SizedBox(
                   width: double.infinity,
@@ -217,13 +220,14 @@ class PendingApprovalScreen extends StatelessWidget {
 
   // ═══════════════════════════════════════════════════════════
   // HANDLE REFRESH
-  // ✅ FIX: Use .value to access RxBool
+  // ✅ FIXED: Use correct method name and .value access
   // ═══════════════════════════════════════════════════════════
   
   Future<void> _handleRefresh(ApprovalStatusService approvalService) async {
-    await approvalService.refreshApprovalStatus();
+    // ✅ FIX: Use checkApprovalStatus() instead of refreshApprovalStatus()
+    await approvalService.checkApprovalStatus();
     
-    // ✅ CORRECT: Access .value property of RxBool
+    // ✅ FIX: Access .value property of RxBool
     if (approvalService.isApproved.value) {
       // User is now approved, go back and refresh the previous screen
       Get.back();

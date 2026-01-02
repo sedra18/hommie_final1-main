@@ -5,7 +5,7 @@ import 'package:hommie/data/services/token_storage_service.dart';
 import 'package:hommie/data/services/approval_status_service.dart';
 
 // ═══════════════════════════════════════════════════════════
-// BOOKING CARD SERVICE
+// BOOKING CARD SERVICE - FIXED
 // Prevents owners from booking their own apartments
 // Checks approval status before allowing bookings
 // Shows appropriate messages for different scenarios
@@ -100,10 +100,12 @@ class BookingCardService extends GetxService {
   // ═══════════════════════════════════════════════════════════
   // SHOW PENDING APPROVAL WARNING
   // Specific message for pending requests screen
+  // ✅ FIXED: Added .value to access RxBool
   // ═══════════════════════════════════════════════════════════
   
   void showPendingRequestsWarning() {
-    if (_approvalService.isPending) {
+    // ✅ FIX: Added .value to access RxBool
+    if (_approvalService.isPending.value) {
       Get.snackbar(
         'Approval Required',
         'Your account is pending approval. Pending requests will appear here once your account is approved.',

@@ -5,9 +5,10 @@ import 'package:hommie/app/utils/app_colors.dart';
 import 'package:hommie/data/models/user/user_login_model.dart';
 import 'package:hommie/data/models/user/user_permission_controller.dart';
 import 'package:hommie/data/services/auth_service.dart';
+import 'package:hommie/data/services/token_storage_service.dart';
 import 'package:hommie/helpers/loading_helper.dart';
 import 'package:hommie/modules/owner/views/main_nav_view.dart';
-import 'package:hommie/modules/renter/views/home.dart';
+import 'package:hommie/modules/renter/views/renter_home.dart';
 import 'package:hommie/modules/shared/views/empty_screen.dart';
 
 
@@ -405,4 +406,39 @@ class LoginScreenController extends GetxController {
     newPasswordController.dispose();
     super.onClose();
   }
+  
+void onLoginSuccess(Map<String, dynamic> response) async {
+  try {
+    final token = response['token'];
+    final user = response['user'];
+    final role = user['role'];
+    
+    // Save to AuthService (this persists the state)
+    final authService = Get.find<AuthService>();
+    await authService.saveUserState(
+      token: token,
+      user: user,
+      role: role,
+    );
+    
+    // Also save to TokenStorageService (for API calls)
+    final tokenService = Get.find<TokenStorageService>();
+    await tokenService.saveToken(token);
+    await tokenService.saveUserId(user['id']);
+    await tokenService.saveRole(role);
+    
+    // Navigate based on role
+    if (role == 'renter') {
+      Get.offAllNamed('/home');
+    } else if (role == 'owner') {
+      Get.offAllNamed('/owner_home');
+    }
+    
+    print('✅ Login successful for $role');
+  } catch (e) {
+    print('❌ Login error: $e');
+    Get.snackbar('Error', 'Login failed');
+  }
+}
+
 }

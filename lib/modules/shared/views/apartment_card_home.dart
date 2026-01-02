@@ -1,36 +1,44 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hommie/data/models/apartment/apartment_model.dart';
-
-import 'package:hommie/data/services/token_storage_service.dart';
+import 'package:hommie/modules/renter/views/apartment_details_screen.dart';
 
 // ═══════════════════════════════════════════════════════════
-// HOME APARTMENT CARD
-// Used in: Renter Home & Owner Home
-// Features: Rating display, favorite toggle, view details
-// Same functionality for both renter and owner
+// HOME APARTMENT CARD - FINAL FIXED VERSION
+// ✅ Removed parameter from navigateToDetails
 // ═══════════════════════════════════════════════════════════
 
 class ApartmentCardHome extends StatelessWidget {
   final ApartmentModel apartment;
-  final VoidCallback onTap;
   final VoidCallback? onFavoriteToggle;
   final bool showFavoriteButton;
 
   const ApartmentCardHome({
     super.key,
     required this.apartment,
-    required this.onTap,
     this.onFavoriteToggle,
     this.showFavoriteButton = true,
   });
+
+  // ✅ FIXED: No parameter - use class field 'apartment' directly
+  void _navigateToDetails() {
+    print('🏠 Navigating to: ${apartment.title}');
+    
+    Get.to(
+      () => ApartmentDetailsScreen(),
+      arguments: {
+        'apartmentId': apartment.id,
+        'apartment': apartment,
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
     return GestureDetector(
-      onTap: onTap,
+      onTap: _navigateToDetails,  // ✅ Now works perfectly
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
@@ -65,18 +73,32 @@ class ApartmentCardHome extends StatelessWidget {
                             return Container(
                               height: 200,
                               color: Colors.grey[300],
-                              child: const Icon(Icons.image_not_supported, size: 50),
+                              child: const Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.image_not_supported, size: 50, color: Colors.grey),
+                                  SizedBox(height: 8),
+                                  Text('Image not available', style: TextStyle(color: Colors.grey)),
+                                ],
+                              ),
                             );
                           },
                         )
                       : Container(
                           height: 200,
                           color: Colors.grey[300],
-                          child: const Icon(Icons.image, size: 50),
+                          child: const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.image, size: 50, color: Colors.grey),
+                              SizedBox(height: 8),
+                              Text('No image', style: TextStyle(color: Colors.grey)),
+                            ],
+                          ),
                         ),
                 ),
                 
-                // Favorite Button (only show if enabled)
+                // Favorite Button
                 if (showFavoriteButton && onFavoriteToggle != null)
                   Positioned(
                     top: 12,
@@ -153,7 +175,7 @@ class ApartmentCardHome extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
 
-                  // Rating Display
+                  // Rating and Price
                   Row(
                     children: [
                       Icon(
@@ -168,14 +190,6 @@ class ApartmentCardHome extends StatelessWidget {
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: isDark ? Colors.white : Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '(${apartment.avgRating.toStringAsFixed(1)})',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isDark ? Colors.white60 : Colors.grey[600],
                         ),
                       ),
                       const Spacer(),

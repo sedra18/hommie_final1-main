@@ -1,23 +1,25 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:hommie/data/services/apartments_service.dart';
 
 // ═══════════════════════════════════════════════════════════
-// APARTMENT MODEL - WITH USER ID
-// ✅ Added userId field to identify apartment owner
-// ✅ Parses user_id from backend JSON
+// APARTMENT MODEL - FIXED
+// ✅ Proper type casting for image lists
+// ✅ Uses ApartmentsService.getCleanImageUrl()
+// ✅ No type errors
 // ═══════════════════════════════════════════════════════════
 
 class ApartmentModel {
   final int id;
-  final int? userId;  // ✅ ADDED - Owner's user ID
+  final int? userId;  
   final String title;
   final String governorate;
-   final String? address;
+  final String? address;
   final String city;
   final String mainImage; 
-  final double pricePerDay;
+  final int pricePerDay;
   final int roomsCount;
-  final int apartmentSize;
+  final double apartmentSize;
   final double avgRating;
 
   String? description;
@@ -28,7 +30,7 @@ class ApartmentModel {
   ApartmentModel({
     required this.id,
     this.userId,
-    this.address,  // ✅ ADDED
+    this.address,  
     required this.title,
     required this.governorate,
     required this.city,
@@ -52,15 +54,15 @@ class ApartmentModel {
 
     return ApartmentModel(
       id: json["id"] ?? 0,
-      userId: json["user_id"] as int?,  // ✅ ADDED - Parse user_id from backend
+      userId: json["user_id"] as int?,  
       title: json["title"] ?? "",
       governorate: json["governorate"] ?? "",
       city: json["city"] ?? "",
       address: json["address"] ?? "",
       mainImage: fullImageUrl,
-      pricePerDay: double.tryParse(json["price_per_day"].toString()) ?? 0,
+      pricePerDay: int.tryParse(json["price_per_day"].toString()) ?? 0,
       roomsCount: int.tryParse(json["rooms_count"].toString()) ?? 0,
-      apartmentSize: int.tryParse(json["apartment_size"].toString()) ?? 0,
+      apartmentSize: double.tryParse(json["apartment_size"].toString()) ?? 0,
       avgRating: double.tryParse(json["avg_rating"].toString()) ?? 0,
     );
   }
@@ -75,22 +77,33 @@ class ApartmentModel {
     
     if (rawImages != null) {
       if (rawImages is List) {
+        // ✅ FIXED: Proper type casting
         fetchedImageUrls = rawImages
             .map((e) => ApartmentsService.getCleanImageUrl(e.toString()))
+            .cast<String>()  // ✅ Add cast<String>()
             .toList();
       } else if (rawImages is String && rawImages.isNotEmpty) {
         try {
           final List<dynamic> decodedImages = jsonDecode(rawImages);
+          // ✅ FIXED: Proper type casting
           fetchedImageUrls = decodedImages
               .map((e) => ApartmentsService.getCleanImageUrl(e.toString()))
+              .cast<String>()  // ✅ Add cast<String>()
               .toList();
         } catch (e) {
           // Silent catch - invalid JSON
+          if (kDebugMode) {
+            print('⚠️  Failed to decode images JSON: $e');
+          }
         }
       }
     }
     
-    fetchedImageUrls.insert(0, mainImage);
+    // Insert main image at the beginning
+    if (mainImage.isNotEmpty && !fetchedImageUrls.contains(mainImage)) {
+      fetchedImageUrls.insert(0, mainImage);
+    }
+    
     imageUrls = fetchedImageUrls; 
   }
 
@@ -112,11 +125,11 @@ class ApartmentModel {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'user_id': userId,  // ✅ ADDED
+      'user_id': userId,
       'title': title,
       'governorate': governorate,
       'city': city,
-      'address':address,
+      'address': address,
       'main_image': mainImage,
       'price_per_day': pricePerDay,
       'rooms_count': roomsCount,
@@ -135,15 +148,15 @@ class ApartmentModel {
   
   ApartmentModel copyWith({
     int? id,
-    int? userId,  // ✅ ADDED
+    int? userId,
     String? title,
     String? governorate,
     String? city,
-      final String? address,
+    String? address,
     String? mainImage,
-    double? pricePerDay,
+    int? pricePerDay,
     int? roomsCount,
-    int? apartmentSize,
+    double? apartmentSize,
     double? avgRating,
     String? description,
     String? ownerName,
@@ -152,7 +165,7 @@ class ApartmentModel {
   }) {
     return ApartmentModel(
       id: id ?? this.id,
-      userId: userId ?? this.userId,  // ✅ ADDED
+      userId: userId ?? this.userId,
       title: title ?? this.title,
       governorate: governorate ?? this.governorate,
       city: city ?? this.city,

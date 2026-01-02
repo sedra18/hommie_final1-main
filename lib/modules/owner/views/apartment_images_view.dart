@@ -1,18 +1,18 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:hommie/data/models/apartment/apartment_model.dart';  // ✅ Changed
+import 'package:hommie/data/models/apartment/apartment_model.dart';
 import 'package:image_picker/image_picker.dart';
 import '../controllers/post_ad_controller.dart';
 
 // ═══════════════════════════════════════════════════════════
-// APARTMENT IMAGES VIEW - FIXED
-// Uses ApartmentModel (not OwnerApartmentModel)
+// APARTMENT IMAGES VIEW - FIXED CONTROLLER ISSUE
+// Doesn't recreate controller (preserves draft)
 // ═══════════════════════════════════════════════════════════
 
 class ApartmentImagesView extends StatefulWidget {
   final bool isEdit;
-  final ApartmentModel? editingApartment;  // ✅ Changed type
+  final ApartmentModel? editingApartment;
 
   const ApartmentImagesView({
     super.key,
@@ -40,22 +40,22 @@ class _ApartmentImagesViewState extends State<ApartmentImagesView> {
   // ═══════════════════════════════════════════════════════════
   // IMAGE SELECTION
   // ═══════════════════════════════════════════════════════════
-  
+
   Future<void> _pickImages() async {
     try {
       final List<XFile> images = await _picker.pickMultiImage();
-      
+
       if (images.isNotEmpty) {
         setState(() {
           _selectedImages.addAll(images);
         });
-        
+
         print('📸 Added ${images.length} images');
         print('   Total images: ${_selectedImages.length}');
       }
     } catch (e) {
       print('❌ Error picking images: $e');
-      
+
       if (mounted) {
         Get.snackbar(
           'خطأ',
@@ -70,17 +70,17 @@ class _ApartmentImagesViewState extends State<ApartmentImagesView> {
   Future<void> _pickMainImage() async {
     try {
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-      
+
       if (image != null) {
         setState(() {
           _selectedMainImage = image;
         });
-        
+
         print('📸 Main image selected: ${image.path}');
       }
     } catch (e) {
       print('❌ Error picking main image: $e');
-      
+
       if (mounted) {
         Get.snackbar(
           'خطأ',
@@ -110,7 +110,7 @@ class _ApartmentImagesViewState extends State<ApartmentImagesView> {
   // ═══════════════════════════════════════════════════════════
   // PUBLISH APARTMENT
   // ═══════════════════════════════════════════════════════════
-  
+
   Future<void> _publishApartment() async {
     // Validation
     if (_selectedImages.isEmpty) {
@@ -133,32 +133,34 @@ class _ApartmentImagesViewState extends State<ApartmentImagesView> {
       print('═══════════════════════════════════════════════════════════');
       print('📤 PUBLISHING APARTMENT');
       print('──────────────────────────────────────────────────────────');
-      
+
+      // ✅ FIX: Use Get.find() instead of Get.put()
+      // This gets the existing controller instead of creating a new one
       final c = Get.find<PostAdController>();
-      
+
       // Convert XFile list to path strings
       final imagePaths = _selectedImages.map((file) => file.path).toList();
-      
+
       print('   Selected images: ${imagePaths.length}');
       for (var i = 0; i < imagePaths.length; i++) {
         print('      ${i + 1}. ${imagePaths[i]}');
       }
-      
+
       if (_selectedMainImage != null) {
         print('   Main image: ${_selectedMainImage!.path}');
       }
-      
+
       print('──────────────────────────────────────────────────────────');
-      
+
       // Save images to draft
       print('💾 Saving images to draft...');
       await c.saveDraftImagesFromFiles(imagePaths);
       print('✅ Images saved to draft');
-      
+
       // Publish the draft
       print('📤 Publishing to backend...');
       await c.publishDraft();
-      
+
       print('');
       print('✅ PUBLISH COMPLETE');
       print('═══════════════════════════════════════════════════════════');
@@ -174,7 +176,7 @@ class _ApartmentImagesViewState extends State<ApartmentImagesView> {
           duration: const Duration(seconds: 2),
         );
       }
-      
+
       // Wait a bit for user to see the message
       await Future.delayed(const Duration(milliseconds: 500));
 
@@ -183,13 +185,12 @@ class _ApartmentImagesViewState extends State<ApartmentImagesView> {
         Get.back(); // Back to form screen
         Get.back(); // Back to post ad screen
       }
-      
     } catch (e) {
       print('');
       print('❌ PUBLISH FAILED');
       print('   Error: $e');
       print('═══════════════════════════════════════════════════════════');
-      
+
       // Show error message
       if (mounted) {
         Get.snackbar(
@@ -296,10 +297,7 @@ class _ApartmentImagesViewState extends State<ApartmentImagesView> {
                       // Image
                       ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        child: Image.file(
-                          File(image.path),
-                          fit: BoxFit.cover,
-                        ),
+                        child: Image.file(File(image.path), fit: BoxFit.cover),
                       ),
                       // Remove button
                       Positioned(
@@ -332,10 +330,7 @@ class _ApartmentImagesViewState extends State<ApartmentImagesView> {
             if (_selectedMainImage != null) ...[
               const Text(
                 'الصورة الرئيسية',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
               Stack(
@@ -394,7 +389,9 @@ class _ApartmentImagesViewState extends State<ApartmentImagesView> {
                           height: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
                           ),
                         ),
                         SizedBox(width: 12),
@@ -411,14 +408,15 @@ class _ApartmentImagesViewState extends State<ApartmentImagesView> {
               onPressed: _isPublishing
                   ? null
                   : () {
-                      final controller = Get.find<PostAdController>();
-                      controller.cancelDraft();
+                      try {
+                        final controller = Get.find<PostAdController>();
+                        controller.cancelDraft();
+                      } catch (e) {
+                        print('⚠️  Controller not found: $e');
+                      }
                       Get.back();
                     },
-              child: const Text(
-                'إلغاء',
-                style: TextStyle(fontSize: 16),
-              ),
+              child: const Text('إلغاء', style: TextStyle(fontSize: 16)),
             ),
 
             const SizedBox(height: 24),

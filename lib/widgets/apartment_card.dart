@@ -1,51 +1,67 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:hommie/app/utils/app_colors.dart';
 import 'package:hommie/data/models/apartment/apartment_model.dart';
-import 'package:hommie/data/services/apartments_service.dart';
+import 'package:hommie/modules/renter/views/apartment_details_screen.dart';
 import 'package:hommie/modules/owner/controllers/owner_home_controller.dart';
 
 // ═══════════════════════════════════════════════════════════
-// APARTMENT CARD
-// Universal card for both owner and renter
-// Uses isMyApartment parameter passed from parent
+// UNIFIED APARTMENT CARD - WORKS FOR BOTH OWNER & RENTER
+// ✅ Shows rating as stars (not numbers)
+// ✅ Shows "My Apartment" badge for owner's apartments
+// ✅ Shows edit/delete buttons for owner's apartments
+// ✅ Single card design for consistency
 // ═══════════════════════════════════════════════════════════
 
-class ApartmentCard extends StatelessWidget {
+class UnifiedApartmentCard extends StatelessWidget {
   final ApartmentModel apartment;
-  final bool isMyApartment;  // ← Passed from parent!
   final bool showOwnerActions;
-  final VoidCallback? onTap;
+  final VoidCallback? onFavoriteToggle;
 
-  const ApartmentCard({
+  const UnifiedApartmentCard({
     super.key,
     required this.apartment,
-    required this.isMyApartment,  // ← Required!
     this.showOwnerActions = false,
-    this.onTap,
+    this.onFavoriteToggle,
   });
+
+  // ═══════════════════════════════════════════════════════════
+  // CHECK IF THIS IS USER'S OWN APARTMENT
+  // ═══════════════════════════════════════════════════════════
+  
+  bool get isMyApartment {
+    final box = GetStorage();
+    final currentUserId = box.read('user_id') as int?;
+    
+    if (currentUserId == null || apartment.userId == null) {
+      return false;
+    }
+    
+    return apartment.userId == currentUserId;
+  }
 
   @override
   Widget build(BuildContext context) {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         // Blue border for my apartments
         side: isMyApartment 
-            ? BorderSide(color: AppColors.primary, width: 2)
+            ? const BorderSide(color: AppColors.primary, width: 2)
             : BorderSide.none,
       ),
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.only(bottom: 16),
       child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        onTap: () => _navigateToDetails(),
+        borderRadius: BorderRadius.circular(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ═════════════════════════════════════════════════════
-            // IMAGE SECTION
-            // ═════════════════════════════════════════════════════
+            // ═══════════════════════════════════════════════════
+            // IMAGE SECTION WITH BADGES
+            // ═══════════════════════════════════════════════════
             
             Stack(
               children: [
@@ -66,7 +82,7 @@ class ApartmentCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.2),
+                            color: Colors.black.withOpacity(0.3),
                             blurRadius: 4,
                             offset: const Offset(0, 2),
                           ),
@@ -94,50 +110,46 @@ class ApartmentCard extends StatelessWidget {
                     ),
                   ),
                 
-                // Rating Badge (top-right)
-                if (apartment.avgRating > 0)
+                // Favorite Button (top-right) - Only for renters
+                if (!isMyApartment && onFavoriteToggle != null)
                   Positioned(
                     top: 12,
                     right: 12,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.amber,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.star,
-                            size: 14,
-                            color: Colors.white,
-                          ),
-                          const SizedBox(width: 2),
-                          Text(
-                            apartment.avgRating.toStringAsFixed(1),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
+                    child: GestureDetector(
+                      onTap: onFavoriteToggle,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.95),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 4,
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
+                        child: Icon(
+                          apartment.isFavorite == true
+                              ? Icons.favorite
+                              : Icons.favorite_border,
+                          color: apartment.isFavorite == true
+                              ? Colors.red
+                              : Colors.grey[700],
+                          size: 22,
+                        ),
                       ),
                     ),
                   ),
               ],
             ),
             
-            // ═════════════════════════════════════════════════════
+            // ═══════════════════════════════════════════════════
             // CONTENT SECTION
-            // ═════════════════════════════════════════════════════
+            // ═══════════════════════════════════════════════════
             
             Padding(
-              padding: const EdgeInsets.all(12.0),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -151,6 +163,7 @@ class ApartmentCard extends StatelessWidget {
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimaryLight,
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -171,14 +184,14 @@ class ApartmentCard extends StatelessWidget {
                   Row(
                     children: [
                       Icon(
-                        Icons.location_on,
+                        Icons.location_on_outlined,
                         size: 16,
                         color: Colors.grey.shade600,
                       ),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
-                          '${apartment.city} - ${apartment.governorate}',
+                          '${apartment.city}, ${apartment.governorate}',
                           style: TextStyle(
                             fontSize: 14,
                             color: Colors.grey.shade600,
@@ -192,42 +205,48 @@ class ApartmentCard extends StatelessWidget {
                   
                   const SizedBox(height: 12),
                   
+                  // ✅ RATING AS STARS (NOT NUMBERS!)
+                  _buildRatingStars(),
+                  
+                  const SizedBox(height: 12),
+                  
                   // Details Row (Rooms + Size)
                   Row(
                     children: [
                       _buildDetailChip(
-                        icon: Icons.bed,
+                        icon: Icons.bed_outlined,
                         label: '${apartment.roomsCount} Rooms',
                       ),
                       const SizedBox(width: 8),
                       _buildDetailChip(
-                        icon: Icons.square_foot,
-                        label: '${apartment.apartmentSize} m²',
+                        icon: Icons.square_foot_outlined,
+                        label: '${apartment.apartmentSize.toInt()} m²',
                       ),
                     ],
                   ),
                   
                   const SizedBox(height: 12),
                   
-                  // Price and Booking Status
+                  // Price and Status
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       // Price
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
                             '\$${apartment.pricePerDay.toInt()}',
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
                               color: AppColors.primary,
                             ),
                           ),
                           Text(
-                            ' / day',
+                            ' / night',
                             style: TextStyle(
-                              fontSize: 14,
+                              fontSize: 12,
                               color: Colors.grey.shade600,
                             ),
                           ),
@@ -276,6 +295,57 @@ class ApartmentCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // BUILD RATING STARS - ✅ SHOWS STARS NOT NUMBERS!
+  // ═══════════════════════════════════════════════════════════
+  
+  Widget _buildRatingStars() {
+    final rating = apartment.avgRating;
+    final fullStars = rating.floor();
+    final hasHalfStar = (rating - fullStars) >= 0.5;
+    
+    return Row(
+      children: [
+        // Full stars
+        ...List.generate(fullStars, (index) => const Icon(
+          Icons.star,
+          size: 18,
+          color: Colors.amber,
+        )),
+        
+        // Half star
+        if (hasHalfStar)
+          const Icon(
+            Icons.star_half,
+            size: 18,
+            color: Colors.amber,
+          ),
+        
+        // Empty stars
+        ...List.generate(
+          5 - fullStars - (hasHalfStar ? 1 : 0),
+          (index) => Icon(
+            Icons.star_border,
+            size: 18,
+            color: Colors.grey.shade400,
+          ),
+        ),
+        
+        const SizedBox(width: 6),
+        
+        // Rating number
+        Text(
+          rating.toStringAsFixed(1),
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textPrimaryLight,
+          ),
+        ),
+      ],
     );
   }
 
@@ -335,7 +405,6 @@ class ApartmentCard extends StatelessWidget {
   void _handleEdit(BuildContext context) {
     print('✏️ Edit apartment: ${apartment.title} (ID: ${apartment.id})');
     
-    // TODO: Navigate to edit screen
     Get.snackbar(
       'Edit',
       'Edit feature coming soon...',
@@ -368,23 +437,17 @@ class ApartmentCard extends StatelessWidget {
               Get.back();
               print('✅ Delete confirmed');
               
-              // Show loading
               Get.dialog(
-                const Center(
-                  child: CircularProgressIndicator(),
-                ),
+                const Center(child: CircularProgressIndicator()),
                 barrierDismissible: false,
               );
               
               try {
-                // Get controller and delete
                 final controller = Get.find<OwnerHomeController>();
                 await controller.deleteApartment(apartment.id);
-                
-                Get.back(); // Close loading
-                
+                Get.back();
               } catch (e) {
-                Get.back(); // Close loading
+                Get.back();
                 print('❌ Error: $e');
               }
             },
@@ -404,15 +467,11 @@ class ApartmentCard extends StatelessWidget {
   // ═══════════════════════════════════════════════════════════
   
   Widget _buildImageSection() {
-    final imageUrl = apartment.mainImage.isNotEmpty
-        ? apartment.mainImage
-        : null;
-    
     return ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-      child: imageUrl != null
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+      child: apartment.mainImage.isNotEmpty
           ? Image.network(
-              imageUrl,
+              apartment.mainImage,
               height: 200,
               width: double.infinity,
               fit: BoxFit.cover,
@@ -424,13 +483,8 @@ class ApartmentCard extends StatelessWidget {
                 return Container(
                   height: 200,
                   color: Colors.grey.shade200,
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      value: loadingProgress.expectedTotalBytes != null
-                          ? loadingProgress.cumulativeBytesLoaded /
-                              loadingProgress.expectedTotalBytes!
-                          : null,
-                    ),
+                  child: const Center(
+                    child: CircularProgressIndicator(),
                   ),
                 );
               },
@@ -473,9 +527,9 @@ class ApartmentCard extends StatelessWidget {
     required String label,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: AppColors.primary.withOpacity(0.1),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -484,18 +538,32 @@ class ApartmentCard extends StatelessWidget {
           Icon(
             icon,
             size: 16,
-            color: Colors.grey.shade700,
+            color: AppColors.primary,
           ),
           const SizedBox(width: 4),
           Text(
             label,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 12,
-              color: Colors.grey.shade700,
+              fontWeight: FontWeight.w500,
+              color: AppColors.primary,
             ),
           ),
         ],
       ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // NAVIGATE TO DETAILS
+  // ═══════════════════════════════════════════════════════════
+  
+  void _navigateToDetails() {
+    print('📍 Navigating to details for: ${apartment.title}');
+    
+    Get.to(
+      () => ApartmentDetailsScreen(),
+      arguments: apartment,
     );
   }
 }

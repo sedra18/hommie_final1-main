@@ -5,8 +5,9 @@ import 'package:hommie/data/services/approval_status_service.dart';
 import 'package:hommie/data/services/booking_card_service.dart';
 
 // ═══════════════════════════════════════════════════════════
-// RENTER HOME CONTROLLER - WITH PROPER REFRESH
-// Automatically refreshes apartments when approval status changes
+// RENTER HOME CONTROLLER - FIXED
+// ✅ Uses browseAllApartments() to see ALL apartments
+// ✅ Automatically refreshes when approval status changes
 // ═══════════════════════════════════════════════════════════
 
 class RenterHomeController extends GetxController {
@@ -16,7 +17,7 @@ class RenterHomeController extends GetxController {
   // Make BookingCardService optional since it might not be initialized yet
   BookingCardService? get _bookingService {
     try {
-      return Get.find<BookingCardService>();
+      return Get.put(BookingCardService());
     } catch (e) {
       return null;
     }
@@ -32,7 +33,7 @@ class RenterHomeController extends GetxController {
   void onInit() {
     super.onInit();
     _initializeController();
-    _setupApprovalListener(); // ✅ Listen for approval changes
+    _setupApprovalListener();
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -41,7 +42,6 @@ class RenterHomeController extends GetxController {
   // ═══════════════════════════════════════════════════════════
   
   void _setupApprovalListener() {
-    // ✅ Watch for approval status changes
     ever(_approvalService.isApproved, (isApproved) {
       print('🔔 Approval status changed to: $isApproved');
       if (isApproved) {
@@ -62,23 +62,25 @@ class RenterHomeController extends GetxController {
 
   // ═══════════════════════════════════════════════════════════
   // FETCH APARTMENTS
+  // ✅ FIXED: Uses browseAllApartments() to see ALL apartments
   // ═══════════════════════════════════════════════════════════
   
   Future<void> fetchApartments() async {
     try {
       isLoading.value = true;
-      print('📥 Fetching apartments...');
+      print('📥 [RENTER] Fetching all apartments...');
       
-      final result = await _apartmentRepo.getAllApartments();
+      // ✅ CHANGED: Use browseAllApartments() instead of getAllApartments()
+      final result = await _apartmentRepo.browseAllApartments();
       apartments.value = result;
       
-      print('✅ Loaded ${apartments.length} apartments');
+      print('✅ [RENTER] Loaded ${apartments.length} apartments');
       
-      // ✅ Force UI update
+      // Force UI update
       apartments.refresh();
       
     } catch (e) {
-      print('❌ Error loading apartments: $e');
+      print('❌ [RENTER] Error loading apartments: $e');
       Get.snackbar(
         'Error',
         'Failed to load apartments. Please try again.',
@@ -97,14 +99,10 @@ class RenterHomeController extends GetxController {
   void goToDetails(ApartmentModel apartment) {
     print('📍 Navigating to details for: ${apartment.title}');
     
-    // Navigate to apartment details screen
     Get.toNamed(
       '/apartment_details',
       arguments: apartment,
     );
-    
-    // Alternative if using direct navigation:
-    // Get.to(() => ApartmentDetailsScreen(apartment: apartment));
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -113,15 +111,12 @@ class RenterHomeController extends GetxController {
   // ═══════════════════════════════════════════════════════════
   
   Future<void> refresh() async {
-    print('🔄 Manual refresh triggered...');
+    print('🔄 [RENTER] Manual refresh triggered...');
     
-    // ✅ Check approval status first
     await _approvalService.checkApprovalStatus();
-    
-    // ✅ Then refresh apartments
     await fetchApartments();
     
-    print('✅ Refresh complete!');
+    print('✅ [RENTER] Refresh complete!');
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -130,9 +125,9 @@ class RenterHomeController extends GetxController {
   
   bool canAccessFavorites() {
     if (!_approvalService.isApproved.value) {
-      if (_approvalService.isPending) {
+      if (_approvalService.isPending.value) {
         _approvalService.showPendingApprovalMessage();
-      } else if (_approvalService.isRejected) {
+      } else if (_approvalService.isRejected.value) {
         _approvalService.showRejectionMessage();
       }
       return false;
@@ -146,9 +141,9 @@ class RenterHomeController extends GetxController {
   
   bool canAccessChat() {
     if (!_approvalService.isApproved.value) {
-      if (_approvalService.isPending) {
+      if (_approvalService.isPending.value) {
         _approvalService.showPendingApprovalMessage();
-      } else if (_approvalService.isRejected) {
+      } else if (_approvalService.isRejected.value) {
         _approvalService.showRejectionMessage();
       }
       return false;
@@ -162,7 +157,6 @@ class RenterHomeController extends GetxController {
   
   Future<bool> canBookApartment(ApartmentModel apartment) async {
     if (_bookingService == null) {
-      // Fallback if service not available
       return _approvalService.canPerformAction();
     }
     return await _bookingService!.canBookApartment(apartment);
@@ -178,10 +172,8 @@ class RenterHomeController extends GetxController {
     }
 
     try {
-      // Toggle favorite status via API
       final newFavoriteStatus = !(apartment.isFavorite ?? false);
       
-      // Update locally first for immediate feedback
       final index = apartments.indexWhere((a) => a.id == apartment.id);
       if (index != -1) {
         apartments[index].isFavorite = newFavoriteStatus;
@@ -189,7 +181,6 @@ class RenterHomeController extends GetxController {
       }
 
       // TODO: Call API to update favorite status
-      // await _apartmentRepo.toggleFavorite(apartment.id, newFavoriteStatus);
       
       Get.snackbar(
         newFavoriteStatus ? 'Added to Favorites' : 'Removed from Favorites',
@@ -199,7 +190,6 @@ class RenterHomeController extends GetxController {
       );
     } catch (e) {
       print('❌ Error toggling favorite: $e');
-      // Revert on error
       final index = apartments.indexWhere((a) => a.id == apartment.id);
       if (index != -1) {
         apartments[index].isFavorite = !(apartment.isFavorite ?? false);
@@ -262,7 +252,6 @@ class RenterHomeController extends GetxController {
 
   @override
   void onClose() {
-    // Clean up
     super.onClose();
   }
 }

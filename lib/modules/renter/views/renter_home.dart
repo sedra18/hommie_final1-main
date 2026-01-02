@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:hommie/modules/renter/controllers/home_controller.dart';
+import 'package:hommie/modules/renter/controllers/renter_home_controller.dart';
 import 'package:hommie/modules/renter/views/custom_navbar.dart';
 import 'package:hommie/modules/shared/views/profile_screen.dart';
-import 'package:hommie/widgets/apartment_card.dart';
+import 'package:hommie/widgets/apartment_card.dart';  
 import 'package:hommie/app/utils/app_colors.dart';
 
 // ═══════════════════════════════════════════════════════════
-// RENTER HOME SCREEN - WITH CUSTOM NAVBAR
-// Shows all available apartments
-// Includes bottom navigation for all sections
+// RENTER HOME SCREEN - FIXED
+// ✅ Uses UnifiedApartmentCard correctly
+// ✅ Shows favorites button for renters
 // ═══════════════════════════════════════════════════════════
 
 class RenterHomeScreen extends StatefulWidget {
@@ -20,7 +20,7 @@ class RenterHomeScreen extends StatefulWidget {
 }
 
 class _RenterHomeScreenState extends State<RenterHomeScreen> {
-  int _currentIndex = 0; // Start at Home tab
+  int _currentIndex = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -28,10 +28,7 @@ class _RenterHomeScreenState extends State<RenterHomeScreen> {
 
     return Scaffold(
       appBar: _currentIndex == 0 ? _buildAppBar(controller) : null,
-      
       body: _buildBody(controller),
-      
-      // ✅ Custom NavBar
       bottomNavigationBar: CustomNavBar(
         currentIndex: _currentIndex,
         onTap: _handleNavigation,
@@ -39,13 +36,9 @@ class _RenterHomeScreenState extends State<RenterHomeScreen> {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // BUILD APP BAR (only for Home tab)
-  // ═══════════════════════════════════════════════════════════
-  
   AppBar _buildAppBar(RenterHomeController controller) {
     return AppBar(
-      title: const Text('Available Apartments'),
+      title: const Text('Home'),
       centerTitle: true,
       backgroundColor: AppColors.primary,
       foregroundColor: Colors.white,
@@ -60,11 +53,6 @@ class _RenterHomeScreenState extends State<RenterHomeScreen> {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // BUILD BODY
-  // Show different content based on selected tab
-  // ═══════════════════════════════════════════════════════════
-  
   Widget _buildBody(RenterHomeController controller) {
     switch (_currentIndex) {
       case 0:
@@ -76,7 +64,7 @@ class _RenterHomeScreenState extends State<RenterHomeScreen> {
       case 3:
         return _buildChatTab(controller);
       case 4:
-        return const ProfileScreen(); 
+        return const ProfileScreen();
       default:
         return _buildHomeTab(controller);
     }
@@ -84,11 +72,11 @@ class _RenterHomeScreenState extends State<RenterHomeScreen> {
 
   // ═══════════════════════════════════════════════════════════
   // HOME TAB - All Apartments
+  // ✅ FIXED: Uses UnifiedApartmentCard correctly
   // ═══════════════════════════════════════════════════════════
   
   Widget _buildHomeTab(RenterHomeController controller) {
     return Obx(() {
-      // Loading state
       if (controller.isLoading.value) {
         return const Center(
           child: Column(
@@ -102,7 +90,6 @@ class _RenterHomeScreenState extends State<RenterHomeScreen> {
         );
       }
       
-      // Empty state
       if (controller.apartments.isEmpty) {
         return Center(
           child: Column(
@@ -134,15 +121,14 @@ class _RenterHomeScreenState extends State<RenterHomeScreen> {
         );
       }
       
-      // Apartments list
       return RefreshIndicator(
         onRefresh: controller.refresh,
         child: ListView(
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
           children: [
             // Header
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(vertical: 16),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -186,15 +172,26 @@ class _RenterHomeScreenState extends State<RenterHomeScreen> {
               ),
             ),
             
-            // Apartments List
+            // ✅ FIXED: Apartments List with correct parameters
             ...controller.apartments.map((apartment) {
-              return ApartmentCard(
+              return UnifiedApartmentCard(
                 apartment: apartment,
-                isMyApartment: false,  // Renter never owns apartments
-                showOwnerActions: false,  // Renter has no edit/delete
-                onTap: () {
-                  // Navigate to apartment details
-                  controller.goToDetails(apartment);
+                showOwnerActions: false,  // ✅ Renter can't edit/delete
+                onFavoriteToggle: () {
+                  // ✅ Handle favorite toggle
+                  print('❤️ Favorite toggled for: ${apartment.title}');
+                  
+                  // TODO: Update favorite status in backend
+                  Get.snackbar(
+                    'Favorite',
+                    apartment.isFavorite == true
+                        ? 'Removed from favorites'
+                        : 'Added to favorites',
+                    backgroundColor: Colors.orange,
+                    colorText: Colors.white,
+                    duration: const Duration(seconds: 2),
+                    snackPosition: SnackPosition.BOTTOM,
+                  );
                 },
               );
             }).toList(),
@@ -206,17 +203,13 @@ class _RenterHomeScreenState extends State<RenterHomeScreen> {
     });
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // SEARCH TAB
-  // ═══════════════════════════════════════════════════════════
-  
   Widget _buildSearchTab() {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Search Apartments'),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
-        automaticallyImplyLeading: false, // ✅ No back button
+        automaticallyImplyLeading: false,
       ),
       body: Center(
         child: Column(
@@ -249,12 +242,7 @@ class _RenterHomeScreenState extends State<RenterHomeScreen> {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // FAVORITES TAB
-  // ═══════════════════════════════════════════════════════════
-  
   Widget _buildFavoritesTab(RenterHomeController controller) {
-    // Check if user can access favorites
     if (!controller.canAccessFavorites()) {
       return _buildApprovalRequiredScreen('Favorites');
     }
@@ -264,7 +252,7 @@ class _RenterHomeScreenState extends State<RenterHomeScreen> {
         title: const Text('My Favorites'),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
-        automaticallyImplyLeading: false, // ✅ No back button
+        automaticallyImplyLeading: false,
       ),
       body: Center(
         child: Column(
@@ -298,12 +286,7 @@ class _RenterHomeScreenState extends State<RenterHomeScreen> {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // CHAT TAB
-  // ═══════════════════════════════════════════════════════════
-  
   Widget _buildChatTab(RenterHomeController controller) {
-    // Check if user can access chat
     if (!controller.canAccessChat()) {
       return _buildApprovalRequiredScreen('Chat');
     }
@@ -313,7 +296,7 @@ class _RenterHomeScreenState extends State<RenterHomeScreen> {
         title: const Text('Messages'),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
-        automaticallyImplyLeading: false, // ✅ No back button
+        automaticallyImplyLeading: false,
       ),
       body: Center(
         child: Column(
@@ -346,18 +329,13 @@ class _RenterHomeScreenState extends State<RenterHomeScreen> {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // APPROVAL REQUIRED SCREEN
-  // Shows when user tries to access feature without approval
-  // ═══════════════════════════════════════════════════════════
-  
   Widget _buildApprovalRequiredScreen(String featureName) {
     return Scaffold(
       appBar: AppBar(
         title: Text(featureName),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
-        automaticallyImplyLeading: false, // ✅ No back button
+        automaticallyImplyLeading: false,
       ),
       body: Center(
         child: Padding(
@@ -397,7 +375,6 @@ class _RenterHomeScreenState extends State<RenterHomeScreen> {
               const SizedBox(height: 32),
               ElevatedButton.icon(
                 onPressed: () {
-                  // Navigate back to home
                   setState(() {
                     _currentIndex = 0;
                   });
@@ -420,11 +397,6 @@ class _RenterHomeScreenState extends State<RenterHomeScreen> {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // HANDLE NAVIGATION
-  // Switch between tabs
-  // ═══════════════════════════════════════════════════════════
-  
   void _handleNavigation(int index) {
     setState(() {
       _currentIndex = index;

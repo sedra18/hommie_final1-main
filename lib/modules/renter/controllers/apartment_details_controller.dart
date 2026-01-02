@@ -3,10 +3,14 @@ import 'package:hommie/data/models/apartment/apartment_model.dart';
 import 'package:hommie/data/services/apartments_service.dart';
 import 'package:hommie/data/models/user/user_permission_controller.dart';
 import 'package:flutter/material.dart';
+import 'package:get_storage/get_storage.dart';
 
 // ═══════════════════════════════════════════════════════════
-// UPDATED APARTMENT DETAILS CONTROLLER
-// With Approval System Integration
+// APARTMENT DETAILS CONTROLLER - COMPLETE FIXED VERSION
+// ✅ Handles all argument types properly
+// ✅ Prevents booking own apartments
+// ✅ Better error handling
+// ✅ Proper navigation scheduling
 // ═══════════════════════════════════════════════════════════
 
 class ApartmentDetailsController extends GetxController {
@@ -14,8 +18,8 @@ class ApartmentDetailsController extends GetxController {
   final RxBool isLoading = false.obs;
   RxBool isFavorite = false.obs;
   
-  // ADD THIS: Permission controller
   final permissions = Get.put(UserPermissionsController());
+  final box = GetStorage();
 
   @override
   void onInit() {
@@ -27,24 +31,112 @@ class ApartmentDetailsController extends GetxController {
     print('═══════════════════════════════════════════════════════════');
     
     final args = Get.arguments;
-    if (args != null && args is ApartmentModel) {
-      apartment = (args).obs;
+    print('   Arguments type: ${args.runtimeType}');
+    print('   Arguments: $args');
+    
+    // ✅ FIXED: Handle all argument types properly
+    if (args != null) {
+      try {
+        // Case 1: Arguments has full apartment object
+        if (args is Map<String, dynamic> && args.containsKey('apartment')) {
+          apartment = (args['apartment'] as ApartmentModel).obs;
+          print('   ✅ Using full apartment object');
+          print('   Title: ${apartment.value.title}');
+          print('   ID: ${apartment.value.id}');
+          print('   Owner ID: ${apartment.value.userId}');
+          
+          // Still fetch fresh details
+          fetchApartmentDetails(apartment.value.id);
+        }
+        // Case 2: Arguments is a Map with apartmentId only
+        else if (args is Map<String, dynamic> && args.containsKey('apartmentId')) {
+          final apartmentId = args['apartmentId'] as int;
+          print('   Received apartment ID: $apartmentId');
+          print('   Creating temporary apartment model...');
+          
+          apartment = ApartmentModel(
+            id: apartmentId,
+            title: 'Loading...',
+            governorate: '',
+            city: '',
+            mainImage: '',
+            pricePerDay: 0,
+            roomsCount: 0,
+            apartmentSize: 0,
+            avgRating: 0,
+          ).obs;
+          
+          fetchApartmentDetails(apartmentId);
+        }
+        // Case 3: Arguments is direct ApartmentModel
+        else if (args is ApartmentModel) {
+          apartment = args.obs;
+          print('   Received apartment object: ${apartment.value.title}');
+          print('   ID: ${apartment.value.id}');
+          print('   Owner ID: ${apartment.value.userId}');
+          
+          fetchApartmentDetails(apartment.value.id);
+        }
+        // Case 4: Invalid arguments
+        else {
+          print('❌ Invalid arguments format');
+          print('   Expected: Map with "apartment" or "apartmentId", or ApartmentModel');
+          print('═══════════════════════════════════════════════════════════');
+          
+          // ✅ FIXED: Schedule the navigation for after build completes
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Get.back();
+            Get.snackbar(
+              "Error",
+              "Invalid apartment data",
+              backgroundColor: Colors.red,
+              colorText: Colors.white,
+            );
+          });
+          return;
+        }
+        
+        print('   User Can Book: ${permissions.canBook}');
+        print('──────────────────────────────────────────────────────────');
+        
+      } catch (e) {
+        print('❌ Error processing arguments: $e');
+        print('═══════════════════════════════════════════════════════════');
+        
+        // ✅ FIXED: Schedule the navigation for after build completes
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          Get.back();
+          Get.snackbar(
+            "Error",
+            "Failed to load apartment: $e",
+            backgroundColor: Colors.red,
+            colorText: Colors.white,
+          );
+        });
+      }
       
-      print('   Apartment: ${apartment.value.title}');
-      print('   ID: ${apartment.value.id}');
-      print('   User Can Book: ${permissions.canBook}');
-      print('──────────────────────────────────────────────────────────');
-      
-      fetchApartmentDetails(apartment.value.id); 
     } else {
-      print('❌ No apartment data in arguments');
-      print('══════════════════════════════════════════════════════════');
+      print('❌ No arguments provided');
+      print('═══════════════════════════════════════════════════════════');
       
-      Get.back();
-      Get.snackbar("Error", "Apartment details not found");
+      // ✅ FIXED: Schedule the navigation for after build completes
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Get.back();
+        Get.snackbar(
+          "Error",
+          "Apartment details not found",
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+      });
     }
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // FETCH APARTMENT DETAILS
+  // ✅ Uses correct /api/apartments/:id endpoint
+  // ═══════════════════════════════════════════════════════════
+  
   void fetchApartmentDetails(int apartmentId) async {
     try {
       isLoading.value = true;
@@ -59,17 +151,46 @@ class ApartmentDetailsController extends GetxController {
       print('✅ Apartment details loaded successfully');
       print('   Title: ${apartment.value.title}');
       print('   Price: \$${apartment.value.pricePerDay}');
+      print('   Owner ID: ${apartment.value.userId}');
 
     } catch (e) {
       print('❌ Error fetching apartment details: $e');
       
-      Get.snackbar("Error", "Unable to fetch apartment details. $e",
-          backgroundColor: Colors.redAccent, colorText: Colors.white);
+      String errorMsg = 'Unable to fetch apartment details.';
+      
+      if (e.toString().contains('404')) {
+        errorMsg = 'Apartment not found. It may have been deleted.';
+      } else if (e.toString().contains('401') || e.toString().contains('403')) {
+        errorMsg = 'You don\'t have permission to view this apartment.';
+      } else if (e.toString().contains('500')) {
+        errorMsg = 'Server error. Please try again later.';
+      }
+      
+      Get.snackbar(
+        "Error",
+        errorMsg,
+        backgroundColor: Colors.redAccent,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 4),
+      );
+      
+      // If we don't have the full apartment object, go back
+      if (apartment.value.title == 'Loading...') {
+        Future.delayed(const Duration(seconds: 2), () {
+          if (Get.isDialogOpen != true && Get.isSnackbarOpen != true) {
+            Get.back();
+          }
+        });
+      }
     } finally {
       isLoading.value = false;
     }
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // TOGGLE FAVORITE
+  // ═══════════════════════════════════════════════════════════
+  
   void toggleFavorite() {
     isFavorite.value = !isFavorite.value;
     
@@ -86,39 +207,62 @@ class ApartmentDetailsController extends GetxController {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // UPDATED BOOK APARTMENT METHOD WITH PERMISSION CHECK
+  // BOOK APARTMENT - FIXED
+  // ✅ Prevents booking own apartments
+  // ✅ Better permission checking with apartment owner ID
   // ═══════════════════════════════════════════════════════════
+  
   void bookApartment() {
     print('');
     print('═══════════════════════════════════════════════════════════');
     print('🏠 BOOK APARTMENT CALLED');
     print('   Apartment: ${apartment.value.title}');
     print('   ID: ${apartment.value.id}');
+    print('   Owner ID: ${apartment.value.userId}');
     print('   Price: \$${apartment.value.pricePerDay}/day');
     print('──────────────────────────────────────────────────────────');
 
-    // CHECK PERMISSION FIRST
-    if (!permissions.checkPermission('book', showMessage: true)) {
-      print('❌ Booking denied - User not approved');
+    // ✅ Get current user ID
+    final currentUserId = box.read('user_id') as int?;
+    print('   Current User ID: $currentUserId');
+
+    // ✅ Check if user is trying to book their own apartment
+    if (apartment.value.userId != null && 
+        currentUserId != null && 
+        apartment.value.userId == currentUserId) {
+      print('❌ Cannot book own apartment');
+      print('═══════════════════════════════════════════════════════════');
+      
+      Get.snackbar(
+        "❌ Not Allowed",
+        "You cannot book your own apartment.",
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        icon: const Icon(Icons.block, color: Colors.white),
+        duration: const Duration(seconds: 3),
+      );
+      return;
+    }
+
+    // ✅ Check general permission (approval status)
+    if (!permissions.checkPermission(
+      'book', 
+      showMessage: true,
+      apartmentOwnerId: apartment.value.userId,
+    )) {
+      print('❌ Booking denied - Not approved or other permission issue');
       print('   Is Approved: ${permissions.isApproved.value}');
       print('   Role: ${permissions.userRole.value}');
-      print('   Can Book: ${permissions.canBook}');
       print('═══════════════════════════════════════════════════════════');
       return;
     }
 
     print('✅ Permission granted - Proceeding to booking');
-    print('   User is approved and can book');
     print('═══════════════════════════════════════════════════════════');
     
-    // Proceed with booking
     // TODO: Navigate to booking form screen
-    // Get.toNamed('/booking-form', arguments: {
-    //   'apartment': apartment.value,
-    //   'apartmentId': apartment.value.id,
-    // });
+    // Get.to(() => BookingFormScreen(apartment: apartment.value));
     
-    // For now, show success message
     Get.snackbar(
       "Booking", 
       "Booking started for ${apartment.value.title}",
@@ -129,12 +273,30 @@ class ApartmentDetailsController extends GetxController {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // HELPER GETTER FOR UI
+  // GETTERS
   // ═══════════════════════════════════════════════════════════
   
-  /// Check if user can book this apartment
-  bool get canBook => permissions.canBook;
+  bool get canBook {
+    // ✅ Check if user can book THIS SPECIFIC apartment
+    final currentUserId = box.read('user_id') as int?;
+    
+    // Can't book own apartment
+    if (apartment.value.userId != null && 
+        currentUserId != null && 
+        apartment.value.userId == currentUserId) {
+      return false;
+    }
+    
+    // Otherwise, check general permission
+    return permissions.canBook;
+  }
   
-  /// Check if user is pending approval
   bool get isPending => permissions.isPending;
+  
+  bool get isOwnApartment {
+    final currentUserId = box.read('user_id') as int?;
+    return apartment.value.userId != null && 
+           currentUserId != null && 
+           apartment.value.userId == currentUserId;
+  }
 }

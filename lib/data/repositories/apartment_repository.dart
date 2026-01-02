@@ -6,22 +6,138 @@ import 'package:hommie/data/services/token_storage_service.dart';
 import 'package:get/get.dart';
 
 // ═══════════════════════════════════════════════════════════
-// APARTMENT REPOSITORY
-// Handles all apartment-related API calls
+// APARTMENT REPOSITORY - WITH BROWSE ALL APARTMENTS
+// ✅ Added browseAllApartments() method for public browsing
+// ✅ Handles Laravel paginated response: { data: { data: [...] } }
 // ═══════════════════════════════════════════════════════════
 
 class ApartmentRepository {
   static String _baseUrl = '${BaseUrl.pubBaseUrl}/api';
-  final _tokenService = Get.find<TokenStorageService>();
+  final _tokenService = Get.put(TokenStorageService());
 
   // ═══════════════════════════════════════════════════════════
-  // GET ALL APARTMENTS
-  // Fetch all apartments from the API
+  // BROWSE ALL APARTMENTS (PUBLIC - NO USER FILTER)
+  // This method tries multiple endpoints to find one that returns ALL apartments
+  // ═══════════════════════════════════════════════════════════
+  
+  Future<List<ApartmentModel>> browseAllApartments() async {
+    try {
+      final token = await _tokenService.getAccessToken();
+      
+      print('');
+      print('═══════════════════════════════════════════════════════════');
+      print('🏠 BROWSING ALL APARTMENTS');
+      print('──────────────────────────────────────────────────────────');
+      
+      // ✅ Try different endpoints to find one that works
+      final endpoints = [
+        '/apartments/browse',
+        '/apartments/all', 
+        '/public/apartments',
+        '/apartments',  // Try regular endpoint without auth
+      ];
+      
+      for (var endpoint in endpoints) {
+        try {
+          print('🔍 Trying endpoint: $_baseUrl$endpoint');
+          
+          final response = await http.get(
+            Uri.parse('$_baseUrl$endpoint'),
+            headers: {
+              'Accept': 'application/json',
+              if (token != null && endpoint != '/apartments') 
+                'Authorization': 'Bearer $token',
+            },
+          ).timeout(const Duration(seconds: 5));
+
+          print('   Status: ${response.statusCode}');
+
+          if (response.statusCode == 200) {
+            final responseData = jsonDecode(response.body);
+            
+            // Parse apartments
+            List<dynamic> apartmentsJson = _parseResponse(responseData);
+            
+            print('   Found: ${apartmentsJson.length} apartments');
+            
+            if (apartmentsJson.isNotEmpty) {
+              print('✅ SUCCESS! Using endpoint: $endpoint');
+              print('═══════════════════════════════════════════════════════════');
+              
+              final apartments = <ApartmentModel>[];
+              
+              for (var i = 0; i < apartmentsJson.length; i++) {
+                try {
+                  final apartment = ApartmentModel.fromJson(apartmentsJson[i]);
+                  apartments.add(apartment);
+                } catch (e) {
+                  print('❌ Error parsing apartment $i: $e');
+                }
+              }
+
+              print('✅ Successfully loaded ${apartments.length} apartments');
+              return apartments;
+            }
+          }
+        } catch (e) {
+          print('   ⚠️ Failed: $e');
+          continue; // Try next endpoint
+        }
+      }
+      
+      print('❌ All endpoints failed or returned empty');
+      print('═══════════════════════════════════════════════════════════');
+      return [];
+      
+    } catch (e, stackTrace) {
+      print('');
+      print('═══════════════════════════════════════════════════════════');
+      print('❌ EXCEPTION BROWSING APARTMENTS');
+      print('   Error: $e');
+      print('   Stack: ${stackTrace.toString().split('\n').take(3).join('\n')}');
+      print('═══════════════════════════════════════════════════════════');
+      return [];
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // PARSE RESPONSE - Helper method
+  // ═══════════════════════════════════════════════════════════
+  
+  List<dynamic> _parseResponse(dynamic responseData) {
+    if (responseData is List) {
+      return responseData;
+    } else if (responseData is Map) {
+      if (responseData.containsKey('data')) {
+        final dataValue = responseData['data'];
+        
+        if (dataValue is List) {
+          return dataValue;
+        } else if (dataValue is Map && dataValue.containsKey('data')) {
+          return dataValue['data'] as List;
+        }
+      } else if (responseData.containsKey('apartments')) {
+        return responseData['apartments'] as List;
+      }
+    }
+    return [];
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // GET ALL APARTMENTS (Original - might be filtered by user)
+  // Use browseAllApartments() instead for public browsing
   // ═══════════════════════════════════════════════════════════
   
   Future<List<ApartmentModel>> getAllApartments() async {
     try {
       final token = await _tokenService.getAccessToken();
+      
+      print('');
+      print('═══════════════════════════════════════════════════════════');
+      print('📥 FETCHING APARTMENTS (May be filtered)');
+      print('   URL: $_baseUrl/apartments');
+      print('   Token: ${token != null ? "${token.substring(0, 20)}..." : "NO TOKEN"}');
+      print('═══════════════════════════════════════════════════════════');
       
       final response = await http.get(
         Uri.parse('$_baseUrl/apartments'),
@@ -31,38 +147,41 @@ class ApartmentRepository {
         },
       );
 
-      print('📡 GET /apartments - Status: ${response.statusCode}');
+      print('📡 Status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final responseData = jsonDecode(response.body);
+        List<dynamic> apartmentsJson = _parseResponse(responseData);
+
+        print('🔢 Processing ${apartmentsJson.length} apartments...');
+
+        final apartments = <ApartmentModel>[];
         
-        // Handle different response formats
-        List<dynamic> apartmentsJson;
-        
-        if (data is List) {
-          apartmentsJson = data;
-        } else if (data is Map && data.containsKey('data')) {
-          apartmentsJson = data['data'] as List;
-        } else if (data is Map && data.containsKey('apartments')) {
-          apartmentsJson = data['apartments'] as List;
-        } else {
-          print('⚠️ Unexpected response format');
-          return [];
+        for (var i = 0; i < apartmentsJson.length; i++) {
+          try {
+            final apartment = ApartmentModel.fromJson(apartmentsJson[i]);
+            apartments.add(apartment);
+          } catch (e) {
+            print('❌ Error parsing apartment $i: $e');
+          }
         }
 
-        final apartments = apartmentsJson
-            .map((json) => ApartmentModel.fromJson(json))
-            .toList();
-
-        print('✅ Fetched ${apartments.length} apartments');
+        print('✅ Successfully loaded ${apartments.length} apartments');
+        print('═══════════════════════════════════════════════════════════');
         return apartments;
       } else {
-        print('❌ Failed to fetch apartments: ${response.statusCode}');
+        print('❌ Failed: Status ${response.statusCode}');
         print('Response: ${response.body}');
+        print('═══════════════════════════════════════════════════════════');
         return [];
       }
-    } catch (e) {
-      print('❌ Error fetching apartments: $e');
+    } catch (e, stackTrace) {
+      print('');
+      print('═══════════════════════════════════════════════════════════');
+      print('❌ EXCEPTION FETCHING APARTMENTS');
+      print('   Error: $e');
+      print('   Stack: ${stackTrace.toString().split('\n').take(3).join('\n')}');
+      print('═══════════════════════════════════════════════════════════');
       return [];
     }
   }
@@ -288,16 +407,7 @@ class ApartmentRepository {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        
-        List<dynamic> apartmentsJson;
-        if (data is List) {
-          apartmentsJson = data;
-        } else if (data is Map && data.containsKey('data')) {
-          apartmentsJson = data['data'] as List;
-        } else {
-          print('⚠️ Unexpected response format');
-          return [];
-        }
+        List<dynamic> apartmentsJson = _parseResponse(data);
 
         final apartments = apartmentsJson
             .map((json) => ApartmentModel.fromJson(json))
