@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:hommie/app/utils/app_colors.dart';
+import 'package:hommie/modules/owner/views/my_apartments_screen.dart';
 import 'package:hommie/modules/renter/controllers/renter_home_controller.dart';
 import 'package:hommie/modules/renter/views/custom_navbar.dart';
+import 'package:hommie/modules/renter/views/my_bookings_screen.dart';
 import 'package:hommie/modules/shared/views/profile_screen.dart';
 import 'package:hommie/widgets/apartment_card.dart';  
-import 'package:hommie/app/utils/app_colors.dart';
 
 
 class RenterHomeScreen extends StatefulWidget {
@@ -53,7 +55,7 @@ class _RenterHomeScreenState extends State<RenterHomeScreen> {
       case 0:
         return _buildHomeTab(controller);
       case 1:
-        return _buildSearchTab();
+        return const MyBookingsScreen(); // ✅ FIXED: Added const
       case 2:
         return _buildFavoritesTab(controller);
       case 3:

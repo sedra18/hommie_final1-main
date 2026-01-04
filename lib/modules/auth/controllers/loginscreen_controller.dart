@@ -5,22 +5,14 @@ import 'package:hommie/app/utils/app_colors.dart';
 import 'package:hommie/data/models/user/user_login_model.dart';
 import 'package:hommie/data/models/user/user_permission_controller.dart';
 import 'package:hommie/data/services/auth_service.dart';
-import 'package:hommie/data/services/otp_service.dart';  // ✅ Import OtpService
-import 'package:hommie/data/services/token_storage_service.dart';
-import 'package:hommie/helpers/loading_helper.dart';
+import 'package:hommie/data/services/otp_service.dart';
 import 'package:hommie/modules/owner/views/main_nav_view.dart';
 import 'package:hommie/modules/renter/views/renter_home_screen.dart';
-
-// ═══════════════════════════════════════════════════════════
-// LOGIN SCREEN CONTROLLER - FIXED
-// ✅ Uses OtpService for password reset (not AuthService)
-// ✅ Proper error handling
-// ✅ Complete reset password flow
-// ═══════════════════════════════════════════════════════════
+import 'package:hommie/helpers/loading_helper.dart';
 
 class LoginScreenController extends GetxController {
   final AuthService _authService = Get.put(AuthService());
-  final OtpService _otpService = Get.put(OtpService());  // ✅ Add OtpService
+  final OtpService _otpService = Get.put(OtpService());
   final permissions = Get.put(UserPermissionsController());
   
   var logingFirstTime = false;
@@ -91,18 +83,18 @@ class LoginScreenController extends GetxController {
           print('✅ LOGIN SUCCESSFUL');
           print('   Token: ${data.token?.substring(0, 20)}...');
           print('   Role: ${data.role}');
-          print('   User ID: ${data.id}');  // ✅ Use data.id, not data.user.id
+          print('   User ID: ${data.id}');
           print('   Is Approved: ${data.isApproved}');
           print('──────────────────────────────────────────────────────────');
 
-          // ✅ Save to GetStorage
+          // Save to GetStorage
           box.write('access_token', data.token);
           box.write('user_role', data.role);
           box.write('role', data.role);
-          box.write('user_id', data.id);  // ✅ Use data.id, not data.user.id
+          box.write('user_id', data.id);
           box.write('is_approved', data.isApproved ?? false);
 
-          // ✅ Update permissions
+          // Update permissions
           permissions.updateApprovalStatus(
             data.isApproved ?? false,
             data.role ?? '',
@@ -118,7 +110,7 @@ class LoginScreenController extends GetxController {
 
           await Future.delayed(const Duration(milliseconds: 500));
 
-          // ✅ Navigate based on role
+          // Navigate based on role
           if (data.role == 'renter') {
             print('🏠 Navigating to Renter Home');
             print('═══════════════════════════════════════════════════════════');
@@ -166,8 +158,7 @@ class LoginScreenController extends GetxController {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // PASSWORD RESET FLOW - ✅ FIXED
-  // Uses OtpService instead of AuthService
+  // PASSWORD RESET FLOW
   // ═══════════════════════════════════════════════════════════
 
   /// Step 1: Send Reset OTP
@@ -185,8 +176,7 @@ class LoginScreenController extends GetxController {
 
     LoadingHelper.show();
     try {
-      // ✅ Use OtpService, not AuthService!
-      final response = await _otpService.sendResetOtp(
+      final response = await _otpService.resendResetOtp(
         resetPhoneController.text,
       );
       
@@ -195,7 +185,6 @@ class LoginScreenController extends GetxController {
       print('📥 Response received: $response');
       print('═══════════════════════════════════════════════════════════');
 
-      // ✅ Check for error
       if (response.containsKey('error')) {
         Get.snackbar("Error", response['error']);
       } else {
@@ -227,7 +216,6 @@ class LoginScreenController extends GetxController {
 
     LoadingHelper.show();
     try {
-      // ✅ Use OtpService, not AuthService!
       final response = await _otpService.verifyResetOtp(
         resetPhoneController.text,
         otpController.text,
@@ -238,7 +226,6 @@ class LoginScreenController extends GetxController {
       print('📥 Response received: $response');
       print('═══════════════════════════════════════════════════════════');
 
-      // ✅ Check for error
       if (response.containsKey('error')) {
         Get.snackbar("Error", response['error']);
       } else {
@@ -269,7 +256,6 @@ class LoginScreenController extends GetxController {
 
     LoadingHelper.show();
     try {
-      // ✅ Use OtpService, not AuthService!
       final response = await _otpService.resetPassword(
         phone: resetPhoneController.text,
         newPassword: newPasswordController.text,
@@ -280,7 +266,6 @@ class LoginScreenController extends GetxController {
       print('📥 Response received: $response');
       print('═══════════════════════════════════════════════════════════');
 
-      // ✅ Check for error
       if (response.containsKey('error')) {
         Get.snackbar("Error", response['error']);
       } else {
@@ -328,6 +313,7 @@ class LoginScreenController extends GetxController {
                 prefixIcon: const Icon(Icons.phone, color: AppColors.textSecondaryLight),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppColors.textSecondaryLight),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -335,26 +321,22 @@ class LoginScreenController extends GetxController {
                 ),
               ),
             ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Get.back(),
-                  child: const Text("Cancel"),
-                ),
-                const SizedBox(width: 10),
-                ElevatedButton(
-                  onPressed: sendResetOtp,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                  ),
-                  child: const Text("Send Code"),
-                ),
-              ],
-            ),
           ],
         ),
+      ),
+      confirm: ElevatedButton(
+        onPressed: sendResetOtp,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        child: const Text("Send Code", style: TextStyle(color: Colors.white)),
+      ),
+      cancel: TextButton(
+        onPressed: () => Get.back(),
+        child: const Text("Cancel", style: TextStyle(color: AppColors.textSecondaryLight)),
       ),
     );
   }
@@ -362,7 +344,7 @@ class LoginScreenController extends GetxController {
   void showOtpDialog() {
     otpController.clear();
     Get.defaultDialog(
-      title: "Verify OTP",
+      title: "Enter Verification Code",
       titleStyle: const TextStyle(
         color: AppColors.primary,
         fontWeight: FontWeight.bold,
@@ -371,45 +353,42 @@ class LoginScreenController extends GetxController {
       content: SingleChildScrollView(
         child: Column(
           children: [
-            const Text(
-              "Enter the verification code sent to your phone.",
-            ),
+            const Text("Enter the verification code sent to your phone."),
             const SizedBox(height: 15),
             TextFormField(
               controller: otpController,
               keyboardType: TextInputType.number,
+              maxLength: 6,
               decoration: InputDecoration(
-                hintText: "OTP Code",
-                prefixIcon: const Icon(Icons.pin, color: AppColors.textSecondaryLight),
+                hintText: "Verification Code",
+                prefixIcon: const Icon(Icons.vpn_key, color: AppColors.textSecondaryLight),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppColors.textSecondaryLight),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: const BorderSide(color: AppColors.primary, width: 2),
                 ),
+                counterText: "",
               ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Get.back(),
-                  child: const Text("Cancel"),
-                ),
-                const SizedBox(width: 10),
-                ElevatedButton(
-                  onPressed: verifyOtp,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                  ),
-                  child: const Text("Verify"),
-                ),
-              ],
             ),
           ],
         ),
+      ),
+      confirm: ElevatedButton(
+        onPressed: verifyOtp,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        child: const Text("Verify", style: TextStyle(color: Colors.white)),
+      ),
+      cancel: TextButton(
+        onPressed: () => Get.back(),
+        child: const Text("Cancel", style: TextStyle(color: AppColors.textSecondaryLight)),
       ),
     );
   }
@@ -426,9 +405,7 @@ class LoginScreenController extends GetxController {
       content: SingleChildScrollView(
         child: Column(
           children: [
-            const Text(
-              "Enter your new password.",
-            ),
+            const Text("Enter your new password."),
             const SizedBox(height: 15),
             TextFormField(
               controller: newPasswordController,
@@ -438,6 +415,7 @@ class LoginScreenController extends GetxController {
                 prefixIcon: const Icon(Icons.lock, color: AppColors.textSecondaryLight),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppColors.textSecondaryLight),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -445,26 +423,22 @@ class LoginScreenController extends GetxController {
                 ),
               ),
             ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Get.back(),
-                  child: const Text("Cancel"),
-                ),
-                const SizedBox(width: 10),
-                ElevatedButton(
-                  onPressed: resetPassword,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                  ),
-                  child: const Text("Reset"),
-                ),
-              ],
-            ),
           ],
         ),
+      ),
+      confirm: ElevatedButton(
+        onPressed: resetPassword,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        child: const Text("Reset Password", style: TextStyle(color: Colors.white)),
+      ),
+      cancel: TextButton(
+        onPressed: () => Get.back(),
+        child: const Text("Cancel", style: TextStyle(color: AppColors.textSecondaryLight)),
       ),
     );
   }

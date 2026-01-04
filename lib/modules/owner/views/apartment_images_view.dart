@@ -198,7 +198,7 @@ class _ApartmentImagesViewState extends State<ApartmentImagesView> {
           'فشل نشر الشقة: $e',
           backgroundColor: Colors.red,
           colorText: Colors.white,
-          icon: const Icon(Icons.error, color: Colors.white),
+          icon: const Icon(Icons. error, color: Colors.white),
           duration: const Duration(seconds: 3),
         );
       }
@@ -409,7 +409,7 @@ class _ApartmentImagesViewState extends State<ApartmentImagesView> {
                   ? null
                   : () {
                       try {
-                        final controller = Get.find<PostAdController>();
+                        final controller = Get.put(PostAdController());
                         controller.cancelDraft();
                       } catch (e) {
                         print('⚠️  Controller not found: $e');

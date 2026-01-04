@@ -8,7 +8,9 @@ import 'package:hommie/app/utils/app_colors.dart';
 import 'package:flutter/material.dart';
 
 // ═══════════════════════════════════════════════════════════
-// APPROVAL STATUS SERVICE - WITH NULL SAFETY
+// APPROVAL STATUS SERVICE - ROLE PRESERVATION FIX
+// ✅ CRITICAL: Never changes role during refresh
+// ✅ Only updates approval status
 // Defaults to 'approved' if backend doesn't have approval_status column
 // ═══════════════════════════════════════════════════════════
 
@@ -36,7 +38,7 @@ class ApprovalStatusService extends GetxService {
     
     // Initialize from storage (default to approved if not set)
     final storedApproval = box.read('is_approved');
-    final storedRole = box.read('user_role');
+    final storedRole = box.read('user_role') ?? box.read('role');
     final storedStatus = box.read('approval_status');
     
     // ✅ Default to approved if null
@@ -154,7 +156,8 @@ class ApprovalStatusService extends GetxService {
   }
   
   // ═══════════════════════════════════════════════════════════
-  // CHECK APPROVAL STATUS - WITH NULL SAFETY
+  // CHECK APPROVAL STATUS - WITH ROLE PRESERVATION
+  // ✅ CRITICAL: Never changes role, only checks approval
   // ✅ Defaults to 'approved' if backend returns null
   // ═══════════════════════════════════════════════════════════
   Future<void> checkApprovalStatus() async {
@@ -169,7 +172,11 @@ class ApprovalStatusService extends GetxService {
         return;
       }
       
+      // ✅ SAVE CURRENT ROLE BEFORE API CALL
+      final currentRole = box.read('user_role') ?? box.read('role') ?? '';
+      
       print('🔍 Checking approval status...');
+      print('   Current role: $currentRole (will be preserved)');
       
       // ✅ TRY ENDPOINT 1: /api/user/approval-status
       final approvalUrl = Uri.parse('${BaseUrl.pubBaseUrl}/api/user/approval-status');
@@ -190,12 +197,12 @@ class ApprovalStatusService extends GetxService {
           
           // ✅ Get approval status, default to 'approved' if null
           final approvalStatus = data['approval_status']?.toString().toLowerCase() ?? 'approved';
-          final role = data['role']?.toString();
           
           print('   approval_status: $approvalStatus');
-          print('   role: $role');
+          print('   API role: ${data['role']} (ignored - using stored role)');
           
-          _updateApprovalStatus(approvalStatus, role);
+          // ✅ PRESERVE ROLE: Pass stored role, not API role
+          _updateApprovalStatus(approvalStatus, currentRole);
           
           isCheckingApproval.value = false;
           return;
@@ -203,7 +210,7 @@ class ApprovalStatusService extends GetxService {
           print('! Approval endpoint not found (404) - defaulting to approved');
           
           // ✅ If endpoint doesn't exist, default to approved
-          _updateApprovalStatus('approved', userRole.value);
+          _updateApprovalStatus('approved', currentRole);
           isCheckingApproval.value = false;
           return;
         }
@@ -230,7 +237,6 @@ class ApprovalStatusService extends GetxService {
         print('📥 User response: $data');
         
         String? approvalStatus;
-        String? role;
         
         // Try different response structures
         if (data['approval_status'] != null) {
@@ -239,34 +245,29 @@ class ApprovalStatusService extends GetxService {
           approvalStatus = data['user']['approval_status'].toString().toLowerCase();
         }
         
-        if (data['role'] != null) {
-          role = data['role'].toString();
-        } else if (data['user'] != null && data['user']['role'] != null) {
-          role = data['user']['role'].toString();
-        }
-        
         print('   approval_status: $approvalStatus');
-        print('   role: $role');
+        print('   API role: ${data['role']} (ignored - using stored role)');
         
-        // ✅ Default to 'approved' if null
-        _updateApprovalStatus(approvalStatus ?? 'approved', role);
+        // ✅ Default to 'approved' if null, PRESERVE ROLE
+        _updateApprovalStatus(approvalStatus ?? 'approved', currentRole);
       } else {
         print('❌ Failed to check approval: ${userResponse.statusCode}');
-        print('⚠️  Defaulting to approved status');
+        print('⚠️  Defaulting to approved status with preserved role');
         
         // ✅ If both endpoints fail, keep current status or default to approved
         if (!box.hasData('is_approved')) {
-          _updateApprovalStatus('approved', userRole.value);
+          _updateApprovalStatus('approved', currentRole);
         }
       }
       
     } catch (e) {
       print('❌ Error checking approval status: $e');
-      print('⚠️  Defaulting to approved status');
+      print('⚠️  Defaulting to approved status with preserved role');
       
-      // ✅ On error, keep current status or default to approved
+      // ✅ On error, preserve role
+      final currentRole = box.read('user_role') ?? box.read('role') ?? '';
       if (!box.hasData('is_approved')) {
-        _updateApprovalStatus('approved', userRole.value);
+        _updateApprovalStatus('approved', currentRole);
       }
     } finally {
       isCheckingApproval.value = false;
@@ -275,8 +276,9 @@ class ApprovalStatusService extends GetxService {
   
   // ═══════════════════════════════════════════════════════════
   // UPDATE APPROVAL STATUS (private helper)
+  // ✅ CRITICAL FIX: Uses stored role, ignores API role
   // ═══════════════════════════════════════════════════════════
-  void _updateApprovalStatus(String? approvalStatus, String? role) {
+  void _updateApprovalStatus(String? approvalStatus, String storedRole) {
     // ✅ Default to approved if status is null
     final status = approvalStatus ?? 'approved';
     
@@ -284,10 +286,17 @@ class ApprovalStatusService extends GetxService {
     bool newPendingStatus = status == 'pending';
     bool newRejectedStatus = status == 'rejected';
     
-    // Update role
-    if (role != null && role.isNotEmpty) {
-      userRole.value = role;
-      box.write('user_role', role);
+    // ✅ CRITICAL: Use stored role (from login/signup), NOT from API!
+    if (storedRole.isNotEmpty) {
+      userRole.value = storedRole;
+      
+      // ✅ Ensure both storage keys are set
+      box.write('user_role', storedRole);
+      box.write('role', storedRole);
+      
+      print('   ✅ Role preserved: $storedRole');
+    } else {
+      print('   ⚠️  No stored role found - keeping current');
     }
     
     // Save approval status string
@@ -303,6 +312,7 @@ class ApprovalStatusService extends GetxService {
       print('   Old approved: ${isApproved.value}');
       print('   New approved: $newApprovalStatus');
       print('   Status: $status');
+      print('   Role: $storedRole (unchanged)');
       print('═══════════════════════════════════════════════════════════');
       
       // Update all status flags
@@ -337,6 +347,7 @@ class ApprovalStatusService extends GetxService {
       print('   Is Approved: ${isApproved.value}');
       print('   Is Pending: ${isPending.value}');
       print('   Is Rejected: ${isRejected.value}');
+      print('   Role: $storedRole (preserved)');
     }
   }
   
@@ -354,6 +365,7 @@ class ApprovalStatusService extends GetxService {
     
     box.write('is_approved', approved);
     box.write('user_role', role);
+    box.write('role', role);
     box.write('approval_status', approved ? 'approved' : 'pending');
     
     // Start polling if not approved
@@ -376,6 +388,7 @@ class ApprovalStatusService extends GetxService {
     
     box.remove('is_approved');
     box.remove('user_role');
+    box.remove('role');
     box.remove('approval_status');
   }
   

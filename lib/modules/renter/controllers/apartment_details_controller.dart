@@ -1,9 +1,12 @@
 import 'package:get/get.dart';
+import 'package:hommie/app/utils/app_colors.dart';
 import 'package:hommie/data/models/apartment/apartment_model.dart';
 import 'package:hommie/data/services/apartments_service.dart';
 import 'package:hommie/data/models/user/user_permission_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:hommie/data/services/bookings_service.dart';
+import 'package:hommie/widgets/booking_date_range_picker.dart';
 
 // ═══════════════════════════════════════════════════════════
 // APARTMENT DETAILS CONTROLLER - COMPLETE FIXED VERSION
@@ -11,12 +14,15 @@ import 'package:get_storage/get_storage.dart';
 // ✅ Prevents booking own apartments
 // ✅ Better error handling
 // ✅ Proper navigation scheduling
+// ✅ Includes _formatDateForAPI method
+// ✅ Includes canBook getter
 // ═══════════════════════════════════════════════════════════
 
 class ApartmentDetailsController extends GetxController {
   late Rx<ApartmentModel> apartment;
   final RxBool isLoading = false.obs;
   RxBool isFavorite = false.obs;
+  late Rx<ApartmentModel> apartment2;
 
   final permissions = Get.put(UserPermissionsController());
   final box = GetStorage();
@@ -215,7 +221,7 @@ class ApartmentDetailsController extends GetxController {
   // ✅ Prevents booking own apartments
   // ✅ Better permission checking with apartment owner ID
   // ═══════════════════════════════════════════════════════════
-
+  
   void bookApartment() {
     print('');
     print('═══════════════════════════════════════════════════════════');
@@ -261,19 +267,268 @@ class ApartmentDetailsController extends GetxController {
       return;
     }
 
-    print('✅ Permission granted - Proceeding to booking');
+    print('✅ Permission granted - Opening booking dialog');
     print('═══════════════════════════════════════════════════════════');
 
-    // TODO: Navigate to booking form screen
-    // Get.to(() => BookingFormScreen(apartment: apartment.value));
-//openDialog();
-    Get.snackbar(
-      "Booking",
-      "Booking started for ${apartment.value.title}",
-      backgroundColor: Colors.green,
-      colorText: Colors.white,
-      icon: const Icon(Icons.check_circle, color: Colors.white),
+    // ✅ FIX: Show the booking date range picker dialog
+    _showBookingDialog();
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // ✅ SHOW BOOKING DIALOG
+  // ═══════════════════════════════════════════════════════════
+  
+  void _showBookingDialog() {
+    DateTime? selectedStartDate;
+    DateTime? selectedEndDate;
+    
+    Get.dialog(
+      AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        contentPadding: const EdgeInsets.all(20),
+        title: Column(
+          children: [
+            Icon(
+              Icons.calendar_month,
+              color: AppColors.primary,
+              size: 50,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Book ${apartment.value.title}',
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '\$${apartment.value.pricePerDay} per day',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+        content: StatefulBuilder(
+          builder: (context, setState) {
+            return SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // ✅ Use the existing BookingDateRangePicker widget
+                  BookingDateRangePicker(
+                    onDateRangeSelected: (start, end) {
+                      setState(() {
+                        selectedStartDate = start;
+                        selectedEndDate = end;
+                      });
+                    },
+                    initialStartDate: selectedStartDate,
+                    initialEndDate: selectedEndDate,
+                  ),
+                  
+                  const SizedBox(height: 20),
+                  
+                  // ✅ Show total price if dates selected
+                  if (selectedStartDate != null && selectedEndDate != null)
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.primary),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'Days:',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Text(
+                                '${selectedEndDate!.difference(selectedStartDate!).inDays} days',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'Total Price:',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                '\$${apartment.value.pricePerDay * selectedEndDate!.difference(selectedStartDate!).inDays}',
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(
+                color: Colors.grey,
+                fontSize: 16,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: selectedStartDate == null || selectedEndDate == null
+                ? null
+                : () {
+                    _confirmBooking(selectedStartDate!, selectedEndDate!);
+                  },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 12,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text(
+              'Confirm Booking',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+      barrierDismissible: false,
     );
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // ✅ CONFIRM BOOKING
+  // ═══════════════════════════════════════════════════════════
+   
+  void _confirmBooking(DateTime startDate, DateTime endDate) async {
+    Get.back(); // Close dialog
+    
+    final days = endDate.difference(startDate).inDays;
+    final totalPrice = apartment.value.pricePerDay * days;
+    
+    print('');
+    print('═══════════════════════════════════════════════════════════');
+    print('📝 PROCESSING BOOKING');
+    print('   Apartment ID: ${apartment.value.id}');
+    print('   Start Date: ${_formatDateForAPI(startDate)}');
+    print('   End Date: ${_formatDateForAPI(endDate)}');
+    print('   Days: $days');
+    print('   Total Price: \$$totalPrice');
+    print('──────────────────────────────────────────────────────────');
+    
+    // ✅ Show loading
+    Get.dialog(
+      const Center(
+        child: CircularProgressIndicator(),
+      ),
+      barrierDismissible: false,
+    );
+    
+    try {
+      // ✅ Call booking API with payment method
+      final bookingService = Get.find<BookingService>();
+      final result = await bookingService.createBooking(
+        apartmentId: apartment.value.id,
+        startDate: _formatDateForAPI(startDate),
+        endDate: _formatDateForAPI(endDate),
+        paymentMethod: 'cash', // ✅ Added required parameter (default to cash)
+      );
+      
+      Get.back(); // Close loading
+      
+      if (result['success'] == true) {
+        print('✅ Booking successful');
+        print('═══════════════════════════════════════════════════════════');
+        
+        Get.snackbar(
+          "✅ Booking Confirmed",
+          "Your booking for ${apartment.value.title} has been confirmed!",
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
+          icon: const Icon(Icons.check_circle, color: Colors.white),
+          duration: const Duration(seconds: 4),
+        );
+        
+        // ✅ Navigate to bookings screen or refresh data
+        // Get.offAll(() => const RenterHomeScreen());
+        
+      } else {
+        print('❌ Booking failed: ${result['error']}');
+        print('═══════════════════════════════════════════════════════════');
+        
+        Get.snackbar(
+          "❌ Booking Failed",
+          result['error'] ?? "Failed to create booking. Please try again.",
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+          icon: const Icon(Icons.error, color: Colors.white),
+          duration: const Duration(seconds: 3),
+        );
+      }
+      
+    } catch (e) {
+      Get.back(); // Close loading
+      
+      print('❌ Booking failed: $e');
+      print('═══════════════════════════════════════════════════════════');
+      
+      Get.snackbar(
+        "❌ Booking Failed",
+        "Failed to create booking. Please try again.",
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        icon: const Icon(Icons.error, color: Colors.white),
+        duration: const Duration(seconds: 3),
+      );
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // ✅ FORMAT DATE FOR API (MISSING METHOD - NOW ADDED)
+  // ═══════════════════════════════════════════════════════════
+  
+  String _formatDateForAPI(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -303,7 +558,4 @@ class ApartmentDetailsController extends GetxController {
         currentUserId != null &&
         apartment.value.userId == currentUserId;
   }
-
-  // Future openDialog() =>
-  //     showDialog(context: context, builder: (context) => AlertDialog(title: Text('Choose the booking details'),));
 }

@@ -71,9 +71,9 @@ class CustomNavBar extends StatelessWidget {
         
         // Search
         TabItem(
-          icon: Icons.search_outlined,
-          activeIcon: Icons.search,
-          title: 'Search',
+          icon: Icons.apartment_outlined,
+          activeIcon: Icons.apartment,
+          title: 'MyApa',
         ),
         
         // Favorites (MIDDLE - ELEVATED)

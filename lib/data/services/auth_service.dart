@@ -1,16 +1,8 @@
-import 'dart:convert';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:hommie/data/models/user/user_login_model.dart';
 import 'package:hommie/data/models/user/user_response_model.dart' hide UserLoginModel;
 import 'package:hommie/helpers/base_url.dart';
-
-// ═══════════════════════════════════════════════════════════
-// COMPLETE AUTH SERVICE
-// ✅ Combines API calls AND state management
-// ✅ Handles login, password reset, etc.
-// ✅ Persists user state across app restarts
-// ═══════════════════════════════════════════════════════════
 
 class AuthService extends GetConnect {
   final GetStorage _storage = GetStorage();
@@ -90,7 +82,7 @@ class AuthService extends GetConnect {
 
   // ═══════════════════════════════════════════════════════════
   // STATE MANAGEMENT METHODS
-  // ═════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════
 
   /// Load user state from storage
   void _loadUserState() {
@@ -109,50 +101,56 @@ class AuthService extends GetConnect {
           userData.value = Map<String, dynamic>.from(savedUserData);
         }
         
-        print('✅ User state loaded: Role=$savedRole, ID=$savedUserId');
+        print('✅ User state loaded from storage');
+        print('   Role: $savedRole');
+        print('   User ID: $savedUserId');
+        print('   Is Logged In: $savedIsLoggedIn');
       } else {
         print('ℹ️ No saved user state found');
       }
     } catch (e) {
-      print('❌ Error loading user state: $e');
+      print('⚠️ Error loading user state: $e');
+      _clearUserState();
     }
   }
 
   /// Save user state to storage
-  Future<void> saveUserState({
+  void saveUserState({
     required String token,
-    required Map<String, dynamic> user,
     required String role,
-  }) async {
+    required int userId,
+    Map<String, dynamic>? userData,
+  }) {
     try {
-      await _storage.write(_tokenKey, token);
-      await _storage.write(_userKey, user);
-      await _storage.write(_roleKey, role);
-      await _storage.write(_userIdKey, user['id']);
-      await _storage.write(_isLoggedInKey, true);
+      _storage.write(_tokenKey, token);
+      _storage.write(_roleKey, role);
+      _storage.write(_userIdKey, userId);
+      _storage.write(_isLoggedInKey, true);
       
-      // Update observables
+      if (userData != null) {
+        _storage.write(_userKey, userData);
+        this.userData.value = userData;
+      }
+      
       isLoggedIn.value = true;
       userRole.value = role;
-      userId.value = user['id'];
-      userData.value = user;
+      this.userId.value = userId;
       
-      print('✅ User state saved successfully');
+      print('✅ User state saved to storage');
     } catch (e) {
       print('❌ Error saving user state: $e');
     }
   }
 
-  /// Clear user state (logout)
-  Future<void> clearUserState() async {
+  /// Clear user state from storage
+  void _clearUserState() {
     try {
-      await _storage.remove(_tokenKey);
-      await _storage.remove(_userKey);
-      await _storage.remove(_roleKey);
-      await _storage.remove(_userIdKey);
-      await _storage.write(_isLoggedInKey, false);
+      _storage.remove(_tokenKey);
+      _storage.remove(_userKey);
+      _storage.remove(_roleKey);
+      _storage.remove(_userIdKey);
+      _storage.remove(_isLoggedInKey);
       
-      // Clear observables
       isLoggedIn.value = false;
       userRole.value = '';
       userId.value = null;
@@ -164,19 +162,25 @@ class AuthService extends GetConnect {
     }
   }
 
-  /// Get stored token
+  /// Logout user
+  Future<void> logout() async {
+    _clearUserState();
+    print('✅ User logged out');
+  }
+
+  /// Get current token
   String? getToken() {
     return _storage.read(_tokenKey);
   }
 
-  /// Get stored user ID
-  int? getUserId() {
-    return _storage.read(_userIdKey);
-  }
-
-  /// Get stored user role
+  /// Get user role
   String? getUserRole() {
     return _storage.read(_roleKey);
+  }
+
+  /// Get user ID
+  int? getUserId() {
+    return _storage.read(_userIdKey);
   }
 
   /// Check if user is logged in

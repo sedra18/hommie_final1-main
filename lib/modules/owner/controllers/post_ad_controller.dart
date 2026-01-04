@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io';  // ← CRITICAL: Add this for File validation
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
@@ -9,15 +9,14 @@ import 'package:hommie/helpers/base_url.dart';
 import 'package:http/http.dart' as http;
 
 // ═══════════════════════════════════════════════════════════
-// POST AD CONTROLLER - FULLY FIXED
-// ✅ Fixed endpoint: /api/owner/apartments
-// ✅ Fixed type mismatch: pricePerDay
-// ✅ Added image validation with dart:io
-// ✅ Enhanced debugging logs
+// POST AD CONTROLLER - WITH 401 HANDLING
+// ✅ Validates token before publishing
+// ✅ Handles 401 errors gracefully
+// ✅ Prompts user to re-login after approval
 // ═══════════════════════════════════════════════════════════
 
 class PostAdController extends GetxController {
-  final _tokenService = Get.find<TokenStorageService>();
+  final _tokenService = Get.put(TokenStorageService());
   final box = GetStorage();
 
   final myApartments = <ApartmentModel>[].obs;
@@ -38,8 +37,7 @@ class PostAdController extends GetxController {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // SAVE DRAFT BASIC INFO - ✅ FIXED TYPE
-  // Changed pricePerDay from int to double
+  // SAVE DRAFT BASIC INFO
   // ═══════════════════════════════════════════════════════════
 
   void saveDraftBasicInfo({
@@ -48,7 +46,7 @@ class PostAdController extends GetxController {
     required String governorate,
     required String city,
     required String address,
-    required int pricePerDay,  // ✅ FIXED: Changed from int to double
+    required int pricePerDay,
     required int roomsCount,
     required double apartmentSize,
   }) {
@@ -57,11 +55,11 @@ class PostAdController extends GetxController {
     print('💾 SAVING DRAFT BASIC INFO');
     print('──────────────────────────────────────────────────────────');
     print('   Title: $title');
-    print('   Description: ${description.length} chars');
-    print('   Location: $governorate, $city');
-    print('   Price: \$${pricePerDay.toStringAsFixed(1)}/day');
-    print('   Rooms: $roomsCount');
-    print('   Size: ${apartmentSize.toStringAsFixed(1)} m²');
+    print('   governorate: $governorate');
+    print('   city: $city');
+    print('   price_per_day: $pricePerDay');
+    print('   rooms_count: $roomsCount');
+    print('   apartment_size: $apartmentSize');
     print('═══════════════════════════════════════════════════════════');
 
     draft = ApartmentModel(
@@ -86,6 +84,8 @@ class PostAdController extends GetxController {
 
   // ═══════════════════════════════════════════════════════════
   // FETCH MY APARTMENTS
+  // ✅ FIXED: Only shows apartments published by current owner
+  // Filters by user_id to ensure each owner sees only their own apartments
   // ═══════════════════════════════════════════════════════════
 
   Future<void> fetchMyApartments() async {
@@ -94,7 +94,7 @@ class PostAdController extends GetxController {
 
       print('');
       print('═══════════════════════════════════════════════════════════');
-      print('📥 FETCHING MY APARTMENTS');
+      print('📥 FETCHING MY APARTMENTS ONLY');
       print('═══════════════════════════════════════════════════════════');
 
       final token = await _tokenService.getAccessToken();
@@ -103,11 +103,21 @@ class PostAdController extends GetxController {
         print('⚠️  No access token found');
         return;
       }
+      
+      // ✅ CRITICAL: Get current user ID
+      final currentUserId = await _tokenService.getUserId();
+      
+      if (currentUserId == null) {
+        print('⚠️  No user ID found');
+        return;
+      }
+      
+      print('   Current User ID: $currentUserId');
 
       final url = '${BaseUrl.pubBaseUrl}/api/owner/apartments';
       print('   URL: $url');
 
-      final response = await http.get(
+      final response = await http.post(
         Uri.parse(url),
         headers: {
           'Accept': 'application/json',
@@ -122,36 +132,49 @@ class PostAdController extends GetxController {
 
         List<dynamic> apartmentsJson;
 
-        if (data is Map && data.containsKey('data')) {
+        if (data is List) {
+          apartmentsJson = data;
+        } else if (data is Map && data.containsKey('data')) {
           final dataValue = data['data'];
-
           if (dataValue is List) {
             apartmentsJson = dataValue;
           } else if (dataValue is Map && dataValue.containsKey('data')) {
             apartmentsJson = dataValue['data'] as List;
           } else {
-            print('❌ Unexpected data format');
-            return;
+            apartmentsJson = [];
           }
         } else {
-          print('❌ No data key found');
-          return;
+          apartmentsJson = [];
         }
+
+        print('   Total apartments from API: ${apartmentsJson.length}');
 
         final apartments = <ApartmentModel>[];
 
         for (var json in apartmentsJson) {
           try {
             final apartment = ApartmentModel.fromJson(json);
-            apartments.add(apartment);
+            
+            // ✅ CRITICAL: Only add apartments that belong to current owner
+            if (apartment.userId == currentUserId) {
+              apartments.add(apartment);
+              print('   ✅ Added: ${apartment.title} (user_id: ${apartment.userId})');
+            } else {
+              print('   ⏭️  Skipped: ${apartment.title} (user_id: ${apartment.userId}, not mine)');
+            }
           } catch (e) {
             print('❌ Error parsing apartment: $e');
           }
         }
 
         myApartments.value = apartments;
-
-        print('✅ Loaded ${apartments.length} apartments');
+        
+        print('');
+        print('📊 FILTERING RESULTS:');
+        print('   Total apartments: ${apartmentsJson.length}');
+        print('   My apartments: ${apartments.length}');
+        print('   Other owners: ${apartmentsJson.length - apartments.length}');
+        print('✅ Loaded ${apartments.length} of MY apartments only');
         print('═══════════════════════════════════════════════════════════');
       } else {
         print('❌ Failed with status ${response.statusCode}');
@@ -180,7 +203,7 @@ class PostAdController extends GetxController {
         return false;
       }
 
-      final url = '${BaseUrl.pubBaseUrl}/api/apartments/$apartmentId';
+      final url = '${BaseUrl.pubBaseUrl}/api/owner/apartments/$apartmentId';
 
       final response = await http.delete(
         Uri.parse(url),
@@ -192,7 +215,7 @@ class PostAdController extends GetxController {
 
       print('📡 DELETE /apartments/$apartmentId - Status: ${response.statusCode}');
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 204) {
         print('✅ Apartment deleted successfully');
 
         myApartments.removeWhere((apt) => apt.id == apartmentId);
@@ -236,7 +259,7 @@ class PostAdController extends GetxController {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // SAVE DRAFT IMAGES FROM FILES
+  // SAVE DRAFT IMAGES
   // ═══════════════════════════════════════════════════════════
 
   Future<void> saveDraftImagesFromFiles(List<String> imagePaths) async {
@@ -253,15 +276,14 @@ class PostAdController extends GetxController {
     print('═══════════════════════════════════════════════════════════');
 
     draftImages = imagePaths;
-
     print('✅ Draft images saved');
   }
 
   // ═══════════════════════════════════════════════════════════
-  // PUBLISH DRAFT - FULLY FIXED WITH IMAGE VALIDATION
-  // ✅ Fixed endpoint: /api/owner/apartments
-  // ✅ Added File validation
-  // ✅ Enhanced error logging
+  // PUBLISH DRAFT - WITH TOKEN VALIDATION & 401 HANDLING
+  // ✅ Checks token before making request
+  // ✅ Handles 401 errors with helpful message
+  // ✅ Prompts user to re-login
   // ═══════════════════════════════════════════════════════════
 
   Future<void> publishDraft() async {
@@ -288,14 +310,18 @@ class PostAdController extends GetxController {
     }
 
     try {
+      // ✅ STEP 1: Validate token exists
       final token = await _tokenService.getAccessToken();
 
-      if (token == null) {
+      if (token == null || token.isEmpty) {
+        print('❌ NO TOKEN FOUND');
+        _showReLoginMessage('No authentication token found');
         throw Exception('No access token');
       }
+      
+      print('✅ Token found: ${token.substring(0, 20)}...');
 
-      // ✅ FIXED: Changed from /api/apartments to /api/owner/apartments
-      final url = '${BaseUrl.pubBaseUrl}/api/owner/apartments';
+      final url = '${BaseUrl.pubBaseUrl}/api/apartments';
       print('   Endpoint: $url');
 
       var request = http.MultipartRequest('POST', Uri.parse(url));
@@ -303,7 +329,7 @@ class PostAdController extends GetxController {
       request.headers['Accept'] = 'application/json';
       request.headers['Authorization'] = 'Bearer $token';
 
-      // Add apartment data
+      // Add fields
       request.fields['title'] = draft!.title;
       request.fields['description'] = description;
       request.fields['governorate'] = draft!.governorate;
@@ -318,7 +344,7 @@ class PostAdController extends GetxController {
         print('   $key: $value');
       });
 
-      // ✅ CRITICAL FIX: Validate and add images
+      // Process images
       print('');
       print('📸 Processing Images:');
       print('   Total to upload: ${draftImages.length}');
@@ -332,7 +358,6 @@ class PostAdController extends GetxController {
         print('      Path: $imagePath');
         
         try {
-          // ✅ CRITICAL: Validate file exists
           final file = File(imagePath);
           final exists = await file.exists();
           print('      Exists: $exists');
@@ -350,7 +375,6 @@ class PostAdController extends GetxController {
             continue;
           }
           
-          // ✅ Add validated image
           request.files.add(
             await http.MultipartFile.fromPath(
               'images[]',
@@ -372,7 +396,7 @@ class PostAdController extends GetxController {
       print('   Valid images: $validImages');
 
       if (request.files.isEmpty) {
-        throw Exception('No valid images to upload - all image files were inaccessible');
+        throw Exception('No valid images to upload');
       }
 
       print('');
@@ -386,6 +410,16 @@ class PostAdController extends GetxController {
       print('   Status: ${response.statusCode}');
       print('   Body: ${response.body}');
 
+      // ✅ STEP 2: Handle 401 Unauthenticated
+      if (response.statusCode == 401) {
+        print('');
+        print('❌ 401 UNAUTHENTICATED - TOKEN INVALID');
+        print('═══════════════════════════════════════════════════════════');
+        
+        _showReLoginMessage('Your session has expired');
+        throw Exception('Authentication failed - please login again');
+      }
+
       if (response.statusCode == 200 || response.statusCode == 201) {
         print('');
         print('✅ APARTMENT PUBLISHED SUCCESSFULLY');
@@ -396,7 +430,7 @@ class PostAdController extends GetxController {
         
         Get.snackbar(
           'Success',
-          'Apartment created successfully!',
+          'Apartment published successfully!',
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: const Color(0xFF22C55E),
           colorText: Colors.white,
@@ -410,7 +444,7 @@ class PostAdController extends GetxController {
         
         Get.snackbar(
           'Error',
-          'Failed to create apartment. Please try again.',
+          'Failed to publish apartment (${response.statusCode})',
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: Colors.red,
           colorText: Colors.white,
@@ -429,7 +463,40 @@ class PostAdController extends GetxController {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // CANCEL DRAFT
+  // SHOW RE-LOGIN MESSAGE
+  // ✅ Helpful message for 401 errors
+  // ═══════════════════════════════════════════════════════════
+  
+  void _showReLoginMessage(String reason) {
+    Get.snackbar(
+      '🔐 Re-login Required',
+      '$reason.\n\nAfter admin approval, you must logout and login again to activate publishing.',
+      snackPosition: SnackPosition.TOP,
+      backgroundColor: Colors.orange,
+      colorText: Colors.white,
+      duration: const Duration(seconds: 8),
+      icon: const Icon(Icons.lock_outline, color: Colors.white, size: 32),
+      margin: const EdgeInsets.all(16),
+      mainButton: TextButton(
+        onPressed: () {
+          // Logout and redirect
+          box.erase();
+          Get.offAllNamed('/');
+        },
+        child: const Text(
+          'LOGOUT NOW',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // CLEAR & CANCEL DRAFT
   // ═══════════════════════════════════════════════════════════
 
   void cancelDraft() {
@@ -437,10 +504,6 @@ class PostAdController extends GetxController {
     draftImages = [];
     print('🗑️  Draft cancelled');
   }
-
-  // ═══════════════════════════════════════════════════════════
-  // CLEAR DRAFT
-  // ═══════════════════════════════════════════════════════════
 
   void clearDraft() {
     draft = null;
