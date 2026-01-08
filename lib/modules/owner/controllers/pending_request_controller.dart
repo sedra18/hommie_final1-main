@@ -4,19 +4,21 @@ import 'package:hommie/data/models/bookings/bookings_request_model.dart';
 import 'package:hommie/data/services/bookings_service.dart';
 
 // ═══════════════════════════════════════════════════════════
-// OWNER DASHBOARD CONTROLLER - CORRECTED
-// ✅ Uses correct BookingService method names:
-//    - getPendingBookings() instead of getPendingRequests()
-//    - approveBooking() instead of approveRequest()
-//    - rejectBooking() instead of rejectRequest()
+// OWNER DASHBOARD CONTROLLER - FULLY CORRECTED
+// ✅ Uses correct BookingService method: getOwnerBookings()
+// ✅ Filters pending requests after loading
 // ✅ Null safety checks for request.id
 // ✅ Better error handling
 // ═══════════════════════════════════════════════════════════
 
 class OwnerDashboardController extends GetxController {
-  final BookingService _bookingService = Get.put(BookingService());
+  final BookingService _bookingService = Get.find<BookingService>();
 
   final RxList<BookingRequestModel> pendingRequests =
+      <BookingRequestModel>[].obs;
+  final RxList<BookingRequestModel> approvedRequests =
+      <BookingRequestModel>[].obs;
+  final RxList<BookingRequestModel> rejectedRequests =
       <BookingRequestModel>[].obs;
   final RxBool isLoading = false.obs;
   final RxBool isRefreshing = false.obs;
@@ -24,41 +26,70 @@ class OwnerDashboardController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    loadPendingRequests();
+    loadAllRequests();
   }
 
   // ═══════════════════════════════════════════════════════════
-  // LOAD PENDING BOOKING REQUESTS
-  // ✅ FIXED: Uses getPendingBookings() instead of getPendingRequests()
+  // LOAD ALL BOOKING REQUESTS
+  // ✅ USES: getMyBookings() which works for both owner and renter
+  // ✅ Backend determines owner/renter from token
+  // ✅ Then filters by status on client side
   // ═══════════════════════════════════════════════════════════
 
-  Future<void> loadPendingRequests() async {
+  Future<void> loadAllRequests() async {
     isLoading.value = true;
 
     try {
       print('');
       print('═══════════════════════════════════════════════════════════');
-      print('🔍 [OWNER DASHBOARD] Loading pending requests...');
+      print('🔍 [OWNER DASHBOARD] Loading all booking requests...');
       print('═══════════════════════════════════════════════════════════');
 
-      // ✅ FIXED: Changed from getPendingRequests() to getPendingBookings()
-      final requests = await _bookingService.getPendingBookings();
-      pendingRequests.value = requests;
+      // ✅ UNIFIED METHOD: Backend determines owner/renter from token
+      final allRequests = await _bookingService.getMyBookings();
 
-      print('✅ Loaded ${requests.length} pending requests');
-      for (var req in requests) {
-        print('   • ${req.userName ?? "Unknown"} - ${req.dateRange}');
+      print('📦 Received ${allRequests.length} total requests');
+
+      // ✅ Filter by status
+      pendingRequests.value = allRequests.where((b) {
+        final status = b.status?.toLowerCase() ?? '';
+        return status == 'pending_owner_approval' || status == 'pending';
+      }).toList();
+
+      approvedRequests.value = allRequests.where((b) {
+        final status = b.status?.toLowerCase() ?? '';
+        return status == 'approved' || status == 'confirmed';
+      }).toList();
+
+      rejectedRequests.value = allRequests.where((b) {
+        final status = b.status?.toLowerCase() ?? '';
+        return status == 'rejected' || status == 'declined';
+      }).toList();
+
+      print('');
+      print('📊 REQUESTS BY STATUS:');
+      print('   Pending: ${pendingRequests.length}');
+      print('   Approved: ${approvedRequests.length}');
+      print('   Rejected: ${rejectedRequests.length}');
+      
+      if (pendingRequests.isNotEmpty) {
+        print('\n   Pending requests:');
+        for (var req in pendingRequests) {
+          print('     - ${req.userName ?? "Unknown"} (ID: ${req.id})');
+        }
       }
       print('═══════════════════════════════════════════════════════════');
-    } catch (e) {
-      print('❌ Error loading pending requests: $e');
+    } catch (e, stackTrace) {
+      print('❌ Error loading requests: $e');
+      print('Stack trace: ${stackTrace.toString().split('\n').take(3).join('\n')}');
       print('═══════════════════════════════════════════════════════════');
 
       Get.snackbar(
         'Error',
-        'Failed to load pending requests',
+        'Failed to load booking requests',
         backgroundColor: Colors.red,
         colorText: Colors.white,
+        duration: const Duration(seconds: 3),
       );
     } finally {
       isLoading.value = false;
@@ -71,13 +102,18 @@ class OwnerDashboardController extends GetxController {
 
   Future<void> refreshRequests() async {
     isRefreshing.value = true;
-    await loadPendingRequests();
+    await loadAllRequests();
     isRefreshing.value = false;
+  }
+
+  // Alias for compatibility
+  Future<void> loadPendingRequests() async {
+    await loadAllRequests();
   }
 
   // ═══════════════════════════════════════════════════════════
   // APPROVE A BOOKING REQUEST
-  // ✅ FIXED: Uses approveBooking() instead of approveRequest()
+  // ✅ Uses approveBooking() which exists in BookingService
   // ═══════════════════════════════════════════════════════════
 
   Future<void> approveRequest(BookingRequestModel request) async {
@@ -99,7 +135,6 @@ class OwnerDashboardController extends GetxController {
       print('✅ [APPROVE] Approving booking request');
       print('   Request ID: ${request.id}');
       print('   User: ${request.userName ?? "Unknown"}');
-      print('   Dates: ${request.dateRange}');
       print('──────────────────────────────────────────────────────────');
 
       Get.dialog(
@@ -107,7 +142,6 @@ class OwnerDashboardController extends GetxController {
         barrierDismissible: false,
       );
 
-      // ✅ FIXED: Changed from approveRequest() to approveBooking()
       final success = await _bookingService.approveBooking(request.id!);
       Get.back(); // Close loading dialog
 
@@ -115,8 +149,8 @@ class OwnerDashboardController extends GetxController {
         print('✅ Booking approved successfully');
         print('═══════════════════════════════════════════════════════════');
 
-        // Remove from pending list
-        pendingRequests.removeWhere((r) => r.id == request.id);
+        // Remove from pending list and refresh
+        await loadAllRequests();
 
         Get.snackbar(
           'Success',
@@ -153,7 +187,7 @@ class OwnerDashboardController extends GetxController {
 
   // ═══════════════════════════════════════════════════════════
   // REJECT A BOOKING REQUEST
-  // ✅ FIXED: Uses rejectBooking() instead of rejectRequest()
+  // ✅ Uses rejectBooking() which exists in BookingService
   // ═══════════════════════════════════════════════════════════
 
   Future<void> rejectRequest(BookingRequestModel request) async {
@@ -198,7 +232,6 @@ class OwnerDashboardController extends GetxController {
       print('❌ [REJECT] Rejecting booking request');
       print('   Request ID: ${request.id}');
       print('   User: ${request.userName ?? "Unknown"}');
-      print('   Dates: ${request.dateRange}');
       print('──────────────────────────────────────────────────────────');
 
       Get.dialog(
@@ -206,7 +239,6 @@ class OwnerDashboardController extends GetxController {
         barrierDismissible: false,
       );
 
-      // ✅ FIXED: Changed from rejectRequest() to rejectBooking()
       final success = await _bookingService.rejectBooking(request.id!);
       Get.back(); // Close loading dialog
 
@@ -214,8 +246,8 @@ class OwnerDashboardController extends GetxController {
         print('✅ Booking rejected successfully');
         print('═══════════════════════════════════════════════════════════');
 
-        // Remove from pending list
-        pendingRequests.removeWhere((r) => r.id == request.id);
+        // Refresh all lists
+        await loadAllRequests();
 
         Get.snackbar(
           'Rejected',
@@ -270,7 +302,6 @@ class OwnerDashboardController extends GetxController {
     print('💬 Opening messages with ${request.userName ?? "user"}');
 
     // Navigate to messages screen with user ID
-    // TODO: Update route name if different
     Get.toNamed(
       '/messages',
       arguments: {
@@ -287,6 +318,12 @@ class OwnerDashboardController extends GetxController {
 
   /// Get count of pending requests
   int get pendingCount => pendingRequests.length;
+
+  /// Get count of approved requests
+  int get approvedCount => approvedRequests.length;
+
+  /// Get count of rejected requests
+  int get rejectedCount => rejectedRequests.length;
 
   /// Check if there are any pending requests
   bool get hasPendingRequests => pendingRequests.isNotEmpty;

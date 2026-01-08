@@ -1,18 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:hommie/data/services/bookings_service.dart';
 import 'package:hommie/data/models/bookings/bookings_request_model.dart';
+import 'package:hommie/data/services/bookings_service.dart';
 import 'package:hommie/widgets/request_card.dart';
-import 'package:hommie/widgets/owner_booking_card.dart';
-import 'package:hommie/app/utils/app_colors.dart';
-
-// ═══════════════════════════════════════════════════════════
-// OWNER DASHBOARD WITH TABS
-// ✅ Tab 1: Pending Requests (with approve/reject actions)
-// ✅ Tab 2: Rejected Bookings (read-only)
-// ✅ Tab 3: Approved Bookings (read-only)
-// ✅ ONLY shows bookings for THIS owner's apartments
-// ═══════════════════════════════════════════════════════════
 
 class OwnerDashboardScreen extends StatefulWidget {
   const OwnerDashboardScreen({super.key});
@@ -24,12 +14,12 @@ class OwnerDashboardScreen extends StatefulWidget {
 class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final BookingService _bookingService = Get.put(BookingService());
+  final BookingService _bookingService = Get.find<BookingService>();
 
+  bool _isLoading = false;
   List<BookingRequestModel> _pendingRequests = [];
   List<BookingRequestModel> _rejectedRequests = [];
   List<BookingRequestModel> _approvedRequests = [];
-  bool _isLoading = true;
 
   @override
   void initState() {
@@ -61,31 +51,39 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
     setState(() => _isLoading = true);
 
     try {
-      // ✅ GET /api/bookings/ownerBookings
-      // This endpoint returns ONLY bookings for this owner's apartments
-      final allRequests = await _bookingService.getOwnerBookings();
+      // ✅ GET /api/bookings (backend determines owner/renter from token)
+      final allRequests = await _bookingService.getMyBookings();
 
       print('📦 Raw requests received: ${allRequests.length}');
       
       // Log each request for debugging
       for (var request in allRequests) {
-        print('   - Booking #${request.id}: ${request.status} for ${request.apartmentTitle}');
+        print('   - Booking #${request.id}: "${request.status}" for ${request.apartmentTitle}');
       }
 
-      // ✅ Separate by status (case-insensitive)
+      // ✅ FIXED: Check for exact status from backend
+      // Backend returns 'pending_owner_approval' for pending owner requests
       _pendingRequests = allRequests
-          .where((b) => 
-            b.status?.toLowerCase() == 'pending' ||
-            b.status?.toLowerCase() == 'pending_owner_approval'
-          )
+          .where((b) {
+            final status = b.status?.toLowerCase() ?? '';
+            // Match exactly what backend sends
+            return status == 'pending_owner_approval' || 
+                   status == 'pending';
+          })
           .toList();
 
       _rejectedRequests = allRequests
-          .where((b) => b.status?.toLowerCase() == 'rejected')
+          .where((b) {
+            final status = b.status?.toLowerCase() ?? '';
+            return status == 'rejected' || status == 'declined';
+          })
           .toList();
 
       _approvedRequests = allRequests
-          .where((b) => b.status?.toLowerCase() == 'approved')
+          .where((b) {
+            final status = b.status?.toLowerCase() ?? '';
+            return status == 'approved' || status == 'confirmed';
+          })
           .toList();
 
       print('');
@@ -94,6 +92,14 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
       print('   Rejected: ${_rejectedRequests.length}');
       print('   Approved: ${_approvedRequests.length}');
       print('   Total: ${allRequests.length}');
+      
+      // Debug: Show which requests went where
+      if (_pendingRequests.isNotEmpty) {
+        print('\n   Pending requests:');
+        for (var req in _pendingRequests) {
+          print('     - Booking #${req.id}: "${req.status}"');
+        }
+      }
       print('═══════════════════════════════════════════════════════════');
 
       setState(() => _isLoading = false);
@@ -117,9 +123,23 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
 
   // ═══════════════════════════════════════════════════════════
   // APPROVE REQUEST
+  // ✅ FIXED: Proper null check for request.id
   // ═══════════════════════════════════════════════════════════
 
   Future<void> _approveRequest(BookingRequestModel request) async {
+    // ✅ Check if ID exists
+    if (request.id == null) {
+      print('❌ Cannot approve: ID is null');
+      Get.snackbar(
+        'خطأ',
+        'معرف الحجز غير صالح',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
     print('');
     print('═══════════════════════════════════════════════════════════');
     print('✅ APPROVING REQUEST');
@@ -134,84 +154,48 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
         title: const Row(
           children: [
             Icon(Icons.check_circle, color: Colors.green, size: 28),
-            SizedBox(width: 10),
-            Text('قبول الحجز'),
+            SizedBox(width: 12),
+            Text('تأكيد الموافقة'),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'قبول طلب الحجز من ${request.userName ?? 'المستأجر'}؟',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.home, size: 18),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          request.apartmentTitle ?? 'Apartment',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text('📅 ${request.startDate} - ${request.endDate}'),
-                  Text('💰 ${request.paymentMethod?.toUpperCase() ?? 'N/A'}'),
-                ],
-              ),
-            ),
-          ],
+        content: const Text(
+          'هل أنت متأكد من الموافقة على هذا الحجز؟',
+          style: TextStyle(fontSize: 16),
         ),
         actions: [
           TextButton(
             onPressed: () => Get.back(result: false),
-            child: const Text('إلغاء', style: TextStyle(color: Colors.grey)),
+            child: const Text('إلغاء'),
           ),
           ElevatedButton(
             onPressed: () => Get.back(result: true),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
+              foregroundColor: Colors.white,
             ),
-            child: const Text('قبول'),
+            child: const Text('موافق'),
           ),
         ],
       ),
     );
 
-    if (confirmed == true && request.id != null) {
-      // Show loading
+    if (confirmed == true) {
+      // Show loading indicator
       Get.dialog(
-        const Center(child: CircularProgressIndicator(color: Colors.green)),
+        const Center(child: CircularProgressIndicator()),
         barrierDismissible: false,
       );
 
       final success = await _bookingService.approveBooking(request.id!);
-
+      
       Get.back(); // Close loading
 
       if (success) {
         print('✅ Booking approved successfully');
         print('═══════════════════════════════════════════════════════════');
-
+        
         Get.snackbar(
-          'تم القبول',
+          'نجاح',
           'تم قبول الحجز بنجاح',
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: Colors.green,
@@ -220,18 +204,20 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
           duration: const Duration(seconds: 3),
         );
 
-        // Reload requests
+        // Reload data
         await _loadAllRequests();
       } else {
         print('❌ Failed to approve booking');
         print('═══════════════════════════════════════════════════════════');
-
+        
         Get.snackbar(
           'خطأ',
-          'فشل قبول الحجز',
+          'فشل قبول الحجز. حاول مرة أخرى',
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: Colors.red,
           colorText: Colors.white,
+          icon: const Icon(Icons.error, color: Colors.white),
+          duration: const Duration(seconds: 3),
         );
       }
     }
@@ -239,9 +225,23 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
 
   // ═══════════════════════════════════════════════════════════
   // REJECT REQUEST
+  // ✅ FIXED: Proper null check for request.id
   // ═══════════════════════════════════════════════════════════
 
   Future<void> _rejectRequest(BookingRequestModel request) async {
+    // ✅ Check if ID exists
+    if (request.id == null) {
+      print('❌ Cannot reject: ID is null');
+      Get.snackbar(
+        'خطأ',
+        'معرف الحجز غير صالح',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
     print('');
     print('═══════════════════════════════════════════════════════════');
     print('❌ REJECTING REQUEST');
@@ -256,60 +256,24 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
         title: const Row(
           children: [
             Icon(Icons.cancel, color: Colors.red, size: 28),
-            SizedBox(width: 10),
-            Text('رفض الحجز'),
+            SizedBox(width: 12),
+            Text('تأكيد الرفض'),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'رفض طلب الحجز من ${request.userName ?? 'المستأجر'}؟',
-              style: const TextStyle(fontSize: 16),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    request.apartmentTitle ?? 'Apartment',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 4),
-                  Text('${request.startDate} - ${request.endDate}'),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'لا يمكن التراجع عن هذا الإجراء.',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.red,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ],
+        content: const Text(
+          'هل أنت متأكد من رفض هذا الحجز؟',
+          style: TextStyle(fontSize: 16),
         ),
         actions: [
           TextButton(
             onPressed: () => Get.back(result: false),
-            child: const Text('إلغاء', style: TextStyle(color: Colors.grey)),
+            child: const Text('إلغاء'),
           ),
           ElevatedButton(
             onPressed: () => Get.back(result: true),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
+              foregroundColor: Colors.white,
             ),
             child: const Text('رفض'),
           ),
@@ -317,23 +281,23 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
       ),
     );
 
-    if (confirmed == true && request.id != null) {
-      // Show loading
+    if (confirmed == true) {
+      // Show loading indicator
       Get.dialog(
-        const Center(child: CircularProgressIndicator(color: Colors.red)),
+        const Center(child: CircularProgressIndicator()),
         barrierDismissible: false,
       );
 
       final success = await _bookingService.rejectBooking(request.id!);
-
+      
       Get.back(); // Close loading
 
       if (success) {
         print('✅ Booking rejected successfully');
         print('═══════════════════════════════════════════════════════════');
-
+        
         Get.snackbar(
-          'تم الرفض',
+          'نجاح',
           'تم رفض الحجز',
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: Colors.orange,
@@ -342,47 +306,42 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
           duration: const Duration(seconds: 3),
         );
 
-        // Reload requests
+        // Reload data
         await _loadAllRequests();
       } else {
         print('❌ Failed to reject booking');
         print('═══════════════════════════════════════════════════════════');
-
+        
         Get.snackbar(
           'خطأ',
-          'فشل رفض الحجز',
+          'فشل رفض الحجز. حاول مرة أخرى',
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: Colors.red,
           colorText: Colors.white,
+          icon: const Icon(Icons.error, color: Colors.white),
+          duration: const Duration(seconds: 3),
         );
       }
     }
   }
 
   // ═══════════════════════════════════════════════════════════
-  // GO TO MESSAGES
+  // BUILD UI
   // ═══════════════════════════════════════════════════════════
-
-  void _goToMessages(BookingRequestModel request) {
-    print('💬 Opening messages with ${request.userName ?? "user"}');
-
-    Get.snackbar(
-      'الرسائل',
-      'ميزة الدردشة قريباً',
-      snackPosition: SnackPosition.BOTTOM,
-      backgroundColor: Colors.blue,
-      colorText: Colors.white,
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? const Color(0xFF1F172A) : const Color(0xFFFAF9FB),
       appBar: AppBar(
-        title: const Text('طلبات الحجز'),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
+        title: const Text(
+          'لوحة التحكم',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        centerTitle: true,
+        backgroundColor: isDark ? const Color(0xFF2D2438) : Colors.white,
         elevation: 0,
         actions: [
           IconButton(
@@ -393,205 +352,114 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
         ],
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: Colors.white,
-          indicatorWeight: 3,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          isScrollable: true,
+          indicatorColor: const Color(0xFF3A7AFE),
+          labelColor: const Color(0xFF3A7AFE),
+          unselectedLabelColor: isDark ? Colors.grey[400] : Colors.grey[600],
           tabs: [
             Tab(
               child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.hourglass_empty, size: 18),
-                  const SizedBox(width: 6),
-                  Text('في الانتظار (${_pendingRequests.length})'),
+                  const Text('قيد الانتظار'),
+                  if (_pendingRequests.isNotEmpty) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: const BoxDecoration(
+                        color: Colors.orange,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        '${_pendingRequests.length}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
-            Tab(
-              child: Row(
-                children: [
-                  const Icon(Icons.cancel, size: 18),
-                  const SizedBox(width: 6),
-                  Text('مرفوض (${_rejectedRequests.length})'),
-                ],
-              ),
-            ),
-            Tab(
-              child: Row(
-                children: [
-                  const Icon(Icons.check_circle, size: 18),
-                  const SizedBox(width: 6),
-                  Text('مقبول (${_approvedRequests.length})'),
-                ],
-              ),
-            ),
+            const Tab(text: 'المقبولة'),
+            const Tab(text: 'المرفوضة'),
           ],
         ),
       ),
       body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
-            )
+          ? const Center(child: CircularProgressIndicator())
           : TabBarView(
               controller: _tabController,
               children: [
-                // ⏳ PENDING TAB (with action buttons)
-                _buildPendingList(),
-
-                // ❌ REJECTED TAB (read-only)
-                _buildStatusList(
-                  requests: _rejectedRequests,
-                  status: 'rejected',
-                  emptyIcon: Icons.cancel,
-                  emptyTitle: 'لا توجد حجوزات مرفوضة',
-                  emptyMessage: 'الحجوزات التي رفضتها ستظهر هنا',
-                ),
-
-                // ✅ APPROVED TAB (read-only)
-                _buildStatusList(
-                  requests: _approvedRequests,
-                  status: 'approved',
-                  emptyIcon: Icons.check_circle,
-                  emptyTitle: 'لا توجد حجوزات مقبولة',
-                  emptyMessage: 'الحجوزات التي قبلتها ستظهر هنا',
-                ),
+                // PENDING TAB
+                _buildRequestsList(_pendingRequests, 'pending'),
+                // APPROVED TAB
+                _buildRequestsList(_approvedRequests, 'approved'),
+                // REJECTED TAB
+                _buildRequestsList(_rejectedRequests, 'rejected'),
               ],
             ),
     );
   }
 
   // ═══════════════════════════════════════════════════════════
-  // BUILD PENDING LIST (with action buttons)
+  // BUILD REQUESTS LIST
+  // ✅ FIXED: Proper VoidCallback handling with null checks
   // ═══════════════════════════════════════════════════════════
 
-  Widget _buildPendingList() {
-    if (_pendingRequests.isEmpty) {
-      return _buildEmptyState(
-        icon: Icons.inbox_outlined,
-        title: 'لا توجد طلبات جديدة',
-        message: 'طلبات الحجز الجديدة من المستأجرين ستظهر هنا',
-      );
-    }
-
-    return RefreshIndicator(
-      onRefresh: _loadAllRequests,
-      color: AppColors.primary,
-      child: ListView.separated(
-        padding: const EdgeInsets.all(16),
-        itemCount: _pendingRequests.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 16),
-        itemBuilder: (context, index) {
-          final request = _pendingRequests[index];
-          
-          print('🎴 Building pending card for booking #${request.id}');
-          
-          return BookingRequestCard(
-            request: request,
-            onApprove: () => _approveRequest(request),
-            onReject: () => _rejectRequest(request),
-            onMessage: () => _goToMessages(request),
-          );
-        },
-      ),
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // BUILD STATUS LIST (read-only)
-  // ═══════════════════════════════════════════════════════════
-
-  Widget _buildStatusList({
-    required List<BookingRequestModel> requests,
-    required String status,
-    required IconData emptyIcon,
-    required String emptyTitle,
-    required String emptyMessage,
-  }) {
+  Widget _buildRequestsList(List<BookingRequestModel> requests, String statusType) {
     if (requests.isEmpty) {
-      return _buildEmptyState(
-        icon: emptyIcon,
-        title: emptyTitle,
-        message: emptyMessage,
-      );
-    }
-
-    return RefreshIndicator(
-      onRefresh: _loadAllRequests,
-      color: AppColors.primary,
-      child: ListView.separated(
-        padding: const EdgeInsets.all(16),
-        itemCount: requests.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 16),
-        itemBuilder: (context, index) {
-          final request = requests[index];
-          
-          print('🎴 Building ${status} card for booking #${request.id}');
-          
-          return OwnerBookingCard(
-            booking: request,
-            status: status,
-          );
-        },
-      ),
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // EMPTY STATE
-  // ═══════════════════════════════════════════════════════════
-
-  Widget _buildEmptyState({
-    required IconData icon,
-    required String title,
-    required String message,
-  }) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 80, color: Colors.grey.shade300),
-            const SizedBox(height: 20),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey.shade700,
-              ),
-              textAlign: TextAlign.center,
+            Icon(
+              statusType == 'pending'
+                  ? Icons.inbox
+                  : statusType == 'approved'
+                      ? Icons.check_circle_outline
+                      : Icons.cancel,
+              size: 80,
+              color: Colors.grey[400],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 16),
             Text(
-              message,
+              statusType == 'pending'
+                  ? 'لا توجد طلبات قيد الانتظار'
+                  : statusType == 'approved'
+                      ? 'لا توجد طلبات مقبولة'
+                      : 'لا توجد طلبات مرفوضة',
               style: TextStyle(
-                fontSize: 15,
-                color: Colors.grey.shade500,
-                height: 1.5,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            OutlinedButton.icon(
-              onPressed: _loadAllRequests,
-              icon: const Icon(Icons.refresh),
-              label: const Text('تحديث'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.primary,
-                side: BorderSide(color: AppColors.primary),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
+                fontSize: 18,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
               ),
             ),
           ],
         ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadAllRequests,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: requests.length,
+        itemBuilder: (context, index) {
+          final request = requests[index];
+          
+          return BookingRequestCard(
+            request: request,
+            // ✅ FIXED: Provide proper VoidCallback (non-nullable)
+            onApprove: statusType == 'pending'
+                ? () => _approveRequest(request)
+                : () {}, // Empty callback for non-pending
+            onReject: statusType == 'pending'
+                ? () => _rejectRequest(request)
+                : () {}, // Empty callback for non-pending
+          );
+        },
       ),
     );
   }
