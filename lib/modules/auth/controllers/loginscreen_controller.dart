@@ -85,6 +85,8 @@ class LoginScreenController extends GetxController {
           print('   Role: ${data.role}');
           print('   User ID: ${data.id}');
           print('   Is Approved: ${data.isApproved}');
+      // or however you get it
+     
           print('──────────────────────────────────────────────────────────');
 
           // Save to GetStorage

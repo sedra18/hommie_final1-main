@@ -83,6 +83,9 @@ class ApartmentDetailsController extends GetxController {
           print('   Owner ID: ${apartment.value.userId}');
 
           fetchApartmentDetails(apartment.value.id);
+  print('🔍 Main Image: ${apartment.value.mainImage}');
+print('🔍 Image URLs: ${apartment.value.imageUrls}');
+print('🔍 Images Count: ${apartment.value.imageUrls.length}');
         }
         // Case 4: Invalid arguments
         else {
@@ -144,57 +147,63 @@ class ApartmentDetailsController extends GetxController {
   // ✅ Uses correct /api/apartments/:id endpoint
   // ═══════════════════════════════════════════════════════════
 
+ // ═══════════════════════════════════════════════════════════
+  // FETCH APARTMENT DETAILS - FAULT TOLERANT VERSION
+  // ═══════════════════════════════════════════════════════════
+
+  // ═══════════════════════════════════════════════════════════
+  // FETCH APARTMENT DETAILS - FAULT TOLERANT VERSION
+  // ═══════════════════════════════════════════════════════════
+
   void fetchApartmentDetails(int apartmentId) async {
     try {
       isLoading.value = true;
 
       print('📡 Fetching apartment details for ID: $apartmentId');
 
+      // Attempt to get data from API
       final detailsJson = await ApartmentsService.fetchApartmentDetails(
         apartmentId,
+
       );
+      
       apartment.value.updateFromDetailsJson(detailsJson);
       apartment.refresh();
+      
+      // ✅ Use a null-check fallback for favorites to prevent crash
       isFavorite.value = apartment.value.isFavorite ?? false;
 
       print('✅ Apartment details loaded successfully');
-      print('   Title: ${apartment.value.title}');
-      print('   Price: \$${apartment.value.pricePerDay}');
-      print('   Owner ID: ${apartment.value.userId}');
     } catch (e) {
-      print('❌ Error fetching apartment details: $e');
+      print('❌ Error caught in Controller: $e');
 
-      String errorMsg = 'Unable to fetch apartment details.';
+      // ✅ LOGIC: If the error is a 500 (like your SQL column error)
+      // but we already have basic apartment data from the previous screen, 
+      // let the user see what we have instead of showing an error snackbar.
+      
+      if (apartment.value.title != 'Loading...') {
+        print('⚠️ Server had an error, but showing cached data to user.');
+        // We don't call Get.back() here because we have partial data to show
+      } else {
+        String errorMsg = 'Unable to fetch details from server.';
+        
+        if (e.toString().contains('500')) {
+          errorMsg = 'Server Database Error (Missing Columns).';
+        }
 
-      if (e.toString().contains('404')) {
-        errorMsg = 'Apartment not found. It may have been deleted.';
-      } else if (e.toString().contains('401') || e.toString().contains('403')) {
-        errorMsg = 'You don\'t have permission to view this apartment.';
-      } else if (e.toString().contains('500')) {
-        errorMsg = 'Server error. Please try again later.';
-      }
-
-      Get.snackbar(
-        "Error",
-        errorMsg,
-        backgroundColor: Colors.redAccent,
-        colorText: Colors.white,
-        duration: const Duration(seconds: 4),
-      );
-
-      // If we don't have the full apartment object, go back
-      if (apartment.value.title == 'Loading...') {
-        Future.delayed(const Duration(seconds: 2), () {
-          if (Get.isDialogOpen != true && Get.isSnackbarOpen != true) {
-            Get.back();
-          }
-        });
+        Get.snackbar(
+          "Notice",
+          errorMsg,
+          backgroundColor: Colors.orangeAccent,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 4),
+        );
       }
     } finally {
       isLoading.value = false;
     }
   }
-
+ 
   // ═══════════════════════════════════════════════════════════
   // TOGGLE FAVORITE
   // ═══════════════════════════════════════════════════════════
@@ -466,7 +475,7 @@ class ApartmentDetailsController extends GetxController {
     
     try {
       // ✅ Call booking API with payment method
-      final bookingService = Get.find<BookingService>();
+      final bookingService = Get.put(BookingService());
       final result = await bookingService.createBooking(
         apartmentId: apartment.value.id,
         startDate: _formatDateForAPI(startDate),

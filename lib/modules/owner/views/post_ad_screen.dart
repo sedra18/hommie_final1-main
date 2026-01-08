@@ -4,13 +4,17 @@ import 'package:hommie/app/utils/app_colors.dart';
 import 'package:hommie/modules/owner/controllers/post_ad_controller.dart';
 import 'package:hommie/modules/owner/views/apartment_card_owner.dart';
 import 'package:hommie/modules/owner/views/apartment_form_view.dart';
+
+import 'package:hommie/modules/owner/views/pending_request_view.dart';
 import 'package:hommie/widgets/pending_approval_widget.dart';
 import 'package:hommie/data/services/approval_status_service.dart';
 import 'package:hommie/data/models/apartment/apartment_model.dart';
 
 // ═══════════════════════════════════════════════════════════
-// OWNER POST AD SCREEN - FIXED
-// Shows only owner's apartments with edit/delete
+// OWNER POST AD SCREEN - WITH PENDING REQUESTS NAVIGATION
+// ✅ Shows Add New Apartment button
+// ✅ Pending Requests button → Opens OwnerDashboardScreen
+// ✅ Shows owner's apartments with edit/delete
 // ═══════════════════════════════════════════════════════════
 
 class PostAdScreen extends StatefulWidget {
@@ -23,7 +27,7 @@ class PostAdScreen extends StatefulWidget {
 class _PostAdScreenState extends State<PostAdScreen>
     with AutomaticKeepAliveClientMixin {
   final controller = Get.put(PostAdController());
-  final approvalService = Get.find<ApprovalStatusService>();
+  final approvalService = Get.put(ApprovalStatusService());
 
   @override
   bool get wantKeepAlive => true;
@@ -63,38 +67,76 @@ class _PostAdScreenState extends State<PostAdScreen>
   Widget _buildApprovedContent() {
     return Column(
       children: [
-        // Add Apartment Button
+        // ═══════════════════════════════════════════════════════════
+        // ✅ ACTION BUTTONS ROW (Add Apartment + Pending Requests)
+        // ═══════════════════════════════════════════════════════════
         Padding(
           padding: const EdgeInsets.all(16.0),
-          child: SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () {
-                // Navigate to add apartment form
-                Get.offAll(ApartmentFormView(isEdit: true));
-              },
-              icon: const Icon(Icons.add_home, size: 24),
-              label: const Text(
-                'Add New Apartment',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+          child: Row(
+            children: [
+              // Add New Apartment Button (UNCHANGED!)
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    // Navigate to add apartment form
+                    Get.offAll(ApartmentFormView(isEdit: true));
+                  },
+                  icon: const Icon(Icons.add_home, size: 24),
+                  label: const Text(
+                    'Add a Flat',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 2,
+                  ),
                 ),
-                elevation: 2,
               ),
-            ),
+
+              const SizedBox(width: 16),
+
+              // ✅ Pending Requests Button - NOW OPENS DASHBOARD!
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    print('');
+                    print('═══════════════════════════════════════════════════════════');
+                    print('📋 NAVIGATING TO PENDING REQUESTS');
+                    print('═══════════════════════════════════════════════════════════');
+                    
+                    // ✅ Navigate to Owner Dashboard
+                    Get.to(() => const OwnerDashboardScreen());
+                  },
+                  icon: const Icon(Icons.pending_actions, size: 24),
+                  label: const Text(
+                    'Pending Requests',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    side: BorderSide(color: AppColors.primary, width: 2),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
 
         // Divider
         const Divider(height: 1),
 
-        // My Apartments List
+        // ═══════════════════════════════════════════════════════════
+        // MY APARTMENTS LIST (UNCHANGED!)
+        // ═══════════════════════════════════════════════════════════
         Expanded(
           child: Obx(() {
             // Show loading
@@ -137,7 +179,7 @@ class _PostAdScreenState extends State<PostAdScreen>
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        'Click "Add New Apartment" to post your first listing',
+                        'Click "Add a Flat" to post your first listing',
                         style: TextStyle(fontSize: 14, color: Colors.black54),
                         textAlign: TextAlign.center,
                       ),
@@ -232,7 +274,7 @@ class _PostAdScreenState extends State<PostAdScreen>
                       },
                       onDelete: () => _confirmDelete(apartment),
                     );
-                  }).toList(),
+                  }),
 
                   const SizedBox(height: 80), // Bottom padding
                 ],
@@ -245,7 +287,7 @@ class _PostAdScreenState extends State<PostAdScreen>
   }
 
   // ═══════════════════════════════════════════════════════════
-  // CONFIRM DELETE DIALOG
+  // CONFIRM DELETE DIALOG (UNCHANGED!)
   // ═══════════════════════════════════════════════════════════
 
   void _confirmDelete(ApartmentModel apartment) {

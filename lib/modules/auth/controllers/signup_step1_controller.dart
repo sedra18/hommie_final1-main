@@ -28,7 +28,7 @@ class SignupStep1Controller extends GetxController {
   // ═══════════════════════════════════════════════════════════
   // VALIDATION
   // ═══════════════════════════════════════════════════════════
-  
+
   String? validatePhoneNumber(String? value) {
     if (value == null || value.isEmpty) return "Phone number cannot be empty";
     if (value.length != 10) return "Phone number must be exactly 10 digits";
@@ -38,7 +38,7 @@ class SignupStep1Controller extends GetxController {
   // ═══════════════════════════════════════════════════════════
   // CONFIRM PHONE NUMBER
   // ═══════════════════════════════════════════════════════════
-  
+
   void confirmPhoneNumber() async {
     if (!formKey.currentState!.validate()) return;
 
@@ -52,15 +52,15 @@ class SignupStep1Controller extends GetxController {
   // SEND OTP - FIXED ERROR HANDLING
   // ✅ Shows actual error from backend
   // ═══════════════════════════════════════════════════════════
-  
+
   Future<void> _sendOtp(String phone) async {
     isLoading.value = true;
-    
+
     print('');
     print('═══════════════════════════════════════════════════════════');
     print('📱 [SIGNUP] Sending OTP to: $phone');
     print('═══════════════════════════════════════════════════════════');
-    
+
     try {
       final response = await otpService.sendOtp(phone);
       isLoading.value = false;
@@ -70,13 +70,13 @@ class SignupStep1Controller extends GetxController {
       // ✅ FIXED: Show actual error message
       if (response.containsKey('error')) {
         final errorMessage = response['error'] as String;
-        
+
         print('❌ OTP Error: $errorMessage');
         print('═══════════════════════════════════════════════════════════');
-        
+
         Get.snackbar(
           'Error',
-          errorMessage,  // ✅ Show real error
+          errorMessage, // ✅ Show real error
           backgroundColor: Colors.red,
           colorText: Colors.white,
           duration: const Duration(seconds: 4),
@@ -87,16 +87,16 @@ class SignupStep1Controller extends GetxController {
       // ✅ Success - extract OTP
       if (response.containsKey('otp_test')) {
         otpSent = int.parse(response['otp_test'].toString());
-        
+
         print('✅ OTP sent successfully');
         print('   Test OTP: $otpSent');
         print('═══════════════════════════════════════════════════════════');
-        
+
         _showOtpDialog(phone);
       } else {
         print('❌ No OTP in response');
         print('═══════════════════════════════════════════════════════════');
-        
+
         Get.snackbar(
           'Error',
           'Failed to send OTP. Please try again.',
@@ -106,10 +106,10 @@ class SignupStep1Controller extends GetxController {
       }
     } catch (e) {
       isLoading.value = false;
-      
+
       print('❌ Exception: $e');
       print('═══════════════════════════════════════════════════════════');
-      
+
       Get.snackbar(
         'Error',
         'Connection error: ${e.toString()}',
@@ -122,7 +122,7 @@ class SignupStep1Controller extends GetxController {
   // ═══════════════════════════════════════════════════════════
   // SHOW OTP DIALOG
   // ═══════════════════════════════════════════════════════════
-  
+
   void _showOtpDialog(String phone) {
     Get.dialog(
       AlertDialog(
@@ -140,17 +140,21 @@ class SignupStep1Controller extends GetxController {
               ),
             ),
             const SizedBox(height: 10),
-            
+
             // Resend OTP Button
             TextButton(
               onPressed: () async {
                 print('');
-                print('═══════════════════════════════════════════════════════════');
+                print(
+                  '═══════════════════════════════════════════════════════════',
+                );
                 print('🔄 [RESEND] Resending OTP to: $phone');
-                print('═══════════════════════════════════════════════════════════');
-                
+                print(
+                  '═══════════════════════════════════════════════════════════',
+                );
+
                 isLoading.value = true;
-                
+
                 try {
                   final resendResponse = await otpService.resendResetOtp(phone);
                   isLoading.value = false;
@@ -159,10 +163,12 @@ class SignupStep1Controller extends GetxController {
 
                   if (resendResponse.containsKey('error')) {
                     final errorMessage = resendResponse['error'] as String;
-                    
+
                     print('❌ Resend Error: $errorMessage');
-                    print('═══════════════════════════════════════════════════════════');
-                    
+                    print(
+                      '═══════════════════════════════════════════════════════════',
+                    );
+
                     Get.snackbar(
                       'Error',
                       errorMessage,
@@ -171,11 +177,13 @@ class SignupStep1Controller extends GetxController {
                     );
                   } else if (resendResponse.containsKey('otp_test')) {
                     otpSent = int.parse(resendResponse['otp_test'].toString());
-                    
+
                     print('✅ OTP resent successfully');
                     print('   New Test OTP: $otpSent');
-                    print('═══════════════════════════════════════════════════════════');
-                    
+                    print(
+                      '═══════════════════════════════════════════════════════════',
+                    );
+
                     Get.snackbar(
                       'Info',
                       'OTP resent successfully',
@@ -185,10 +193,12 @@ class SignupStep1Controller extends GetxController {
                   }
                 } catch (e) {
                   isLoading.value = false;
-                  
+
                   print('❌ Resend Exception: $e');
-                  print('═══════════════════════════════════════════════════════════');
-                  
+                  print(
+                    '═══════════════════════════════════════════════════════════',
+                  );
+
                   Get.snackbar(
                     'Error',
                     'Failed to resend OTP',
@@ -202,10 +212,7 @@ class SignupStep1Controller extends GetxController {
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Get.back(), child: const Text('Cancel')),
           TextButton(
             onPressed: () => _verifyOtp(phone),
             child: const Text('Verify'),
@@ -222,7 +229,7 @@ class SignupStep1Controller extends GetxController {
   // ✅ Better logging
   // ✅ Safe navigation
   // ═══════════════════════════════════════════════════════════
-  
+
   Future<void> _verifyOtp(String phone) async {
     if (otpController.text.isEmpty) {
       Get.snackbar(
@@ -257,10 +264,10 @@ class SignupStep1Controller extends GetxController {
       // ✅ Check for errors
       if (verifyResponse.containsKey('error')) {
         final errorMessage = verifyResponse['error'] as String;
-        
+
         print('❌ Verification failed: $errorMessage');
         print('═══════════════════════════════════════════════════════════');
-        
+
         Get.snackbar(
           'Error',
           errorMessage,
@@ -271,13 +278,13 @@ class SignupStep1Controller extends GetxController {
       }
 
       // ✅ Check for message field (might indicate error)
-      if (verifyResponse.containsKey('message') && 
+      if (verifyResponse.containsKey('message') &&
           !verifyResponse.containsKey('pending_user_id')) {
         final message = verifyResponse['message'] as String;
-        
+
         print('❌ Verification message: $message');
         print('═══════════════════════════════════════════════════════════');
-        
+
         Get.snackbar(
           'Error',
           message,
@@ -290,11 +297,11 @@ class SignupStep1Controller extends GetxController {
       // ✅ Extract pending user ID
       if (verifyResponse.containsKey('pending_user_id')) {
         pendingUserId = verifyResponse['pending_user_id'];
-        
+
         if (pendingUserId == null) {
           print('❌ Invalid pending user ID');
           print('═══════════════════════════════════════════════════════════');
-          
+
           Get.snackbar(
             'Error',
             'Verification failed. Invalid user ID.',
@@ -309,7 +316,7 @@ class SignupStep1Controller extends GetxController {
         print('═══════════════════════════════════════════════════════════');
 
         Get.back(); // Close OTP dialog
-        
+
         Get.snackbar(
           'Success',
           'OTP verified successfully!',
@@ -326,7 +333,7 @@ class SignupStep1Controller extends GetxController {
         print('❌ No pending_user_id in response');
         print('   Response: $verifyResponse');
         print('═══════════════════════════════════════════════════════════');
-        
+
         Get.snackbar(
           'Error',
           'Verification failed. Please try again.',
@@ -336,11 +343,13 @@ class SignupStep1Controller extends GetxController {
       }
     } catch (e, stackTrace) {
       isLoading.value = false;
-      
+
       print('❌ Exception during verification: $e');
-      print('   Stack trace: ${stackTrace.toString().split('\n').take(3).join('\n')}');
+      print(
+        '   Stack trace: ${stackTrace.toString().split('\n').take(3).join('\n')}',
+      );
       print('═══════════════════════════════════════════════════════════');
-      
+
       Get.snackbar(
         'Error',
         'An error occurred during verification',
@@ -357,3 +366,4 @@ class SignupStep1Controller extends GetxController {
     super.onClose();
   }
 }
+

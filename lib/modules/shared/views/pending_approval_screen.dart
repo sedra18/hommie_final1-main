@@ -10,16 +10,13 @@ import 'package:hommie/app/utils/app_colors.dart';
 
 class PendingApprovalScreen extends StatelessWidget {
   final String? featureName;
-  
-  const PendingApprovalScreen({
-    super.key,
-    this.featureName,
-  });
+
+  const PendingApprovalScreen({super.key, this.featureName});
 
   @override
   Widget build(BuildContext context) {
-    final approvalService = Get.find<ApprovalStatusService>();
-    
+    final approvalService = Get.put(ApprovalStatusService());
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Approval Required'),
@@ -45,21 +42,18 @@ class PendingApprovalScreen extends StatelessWidget {
                   color: Colors.orange.shade700,
                 ),
               ),
-              
+
               const SizedBox(height: 24),
-              
+
               // Title
               const Text(
                 'Account Pending Approval',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 textAlign: TextAlign.center,
               ),
-              
+
               const SizedBox(height: 16),
-              
+
               // Description
               Obx(() {
                 // ✅ FIX: Access .value to get String from RxString
@@ -73,9 +67,9 @@ class PendingApprovalScreen extends StatelessWidget {
                   textAlign: TextAlign.center,
                 );
               }),
-              
+
               const SizedBox(height: 32),
-              
+
               // Info Card
               Container(
                 padding: const EdgeInsets.all(16),
@@ -108,20 +102,23 @@ class PendingApprovalScreen extends StatelessWidget {
                     const SizedBox(height: 12),
                     _buildInfoStep('1', 'Our team reviews your account'),
                     const SizedBox(height: 8),
-                    _buildInfoStep('2', 'Verification usually takes 24-48 hours'),
+                    _buildInfoStep(
+                      '2',
+                      'Verification usually takes 24-48 hours',
+                    ),
                     const SizedBox(height: 8),
                     _buildInfoStep('3', 'You\'ll be notified once approved'),
                   ],
                 ),
               ),
-              
+
               const SizedBox(height: 32),
-              
+
               // Refresh Button
               Obx(() {
                 // ✅ FIX: Access .value to get bool from RxBool
                 final isChecking = approvalService.isCheckingApproval.value;
-                
+
                 return SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
@@ -164,7 +161,7 @@ class PendingApprovalScreen extends StatelessWidget {
   // GET DESCRIPTION TEXT
   // Returns role-specific description
   // ═══════════════════════════════════════════════════════════
-  
+
   String _getDescriptionText(String userRole) {
     if (userRole == 'owner') {
       return 'Your owner account is currently under review. You cannot add apartments or access certain features until approved.';
@@ -178,7 +175,7 @@ class PendingApprovalScreen extends StatelessWidget {
   // ═══════════════════════════════════════════════════════════
   // BUILD INFO STEP
   // ═══════════════════════════════════════════════════════════
-  
+
   Widget _buildInfoStep(String number, String text) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -207,10 +204,7 @@ class PendingApprovalScreen extends StatelessWidget {
             padding: const EdgeInsets.only(top: 2),
             child: Text(
               text,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade700,
-              ),
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
             ),
           ),
         ),
@@ -222,26 +216,23 @@ class PendingApprovalScreen extends StatelessWidget {
   // HANDLE REFRESH
   // ✅ FIXED: Use correct method name and .value access
   // ═══════════════════════════════════════════════════════════
-  
+
   Future<void> _handleRefresh(ApprovalStatusService approvalService) async {
     // ✅ FIX: Use checkApprovalStatus() instead of refreshApprovalStatus()
     await approvalService.checkApprovalStatus();
-    
+
     // ✅ FIX: Access .value property of RxBool
     if (approvalService.isApproved.value) {
       // User is now approved, go back and refresh the previous screen
       Get.back();
-      
+
       Get.snackbar(
         'Approved!',
         'Your account has been approved. You can now access all features.',
         snackPosition: SnackPosition.TOP,
         backgroundColor: const Color(0xFF22C55E),
         colorText: const Color(0xFFFFFFFF),
-        icon: const Icon(
-          Icons.check_circle,
-          color: Color(0xFFFFFFFF),
-        ),
+        icon: const Icon(Icons.check_circle, color: Color(0xFFFFFFFF)),
       );
     }
   }

@@ -19,7 +19,7 @@ class ApprovalStatusService extends GetxService {
   Timer? _pollTimer;
   
   // Observable approval status
-  final isApproved = true.obs; // ✅ Default to approved
+  final isApproved = false.obs; // ✅ Default to approved
   final isPolling = false.obs;
   final isCheckingApproval = false.obs;
   final isPending = false.obs;

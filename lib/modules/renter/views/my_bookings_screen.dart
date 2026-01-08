@@ -3,7 +3,7 @@ import 'package:get/get.dart';
 import 'package:hommie/app/utils/app_colors.dart';
 import 'package:hommie/data/services/bookings_service.dart';
 import 'package:hommie/data/models/bookings/bookings_request_model.dart';
-import 'package:hommie/widgets/my_bookings_card.dart';
+import 'package:hommie/widgets/my_bookings_card.dart'; // ✅ Import fixed
 
 
 // ═══════════════════════════════════════════════════════════
@@ -11,6 +11,7 @@ import 'package:hommie/widgets/my_bookings_card.dart';
 // ✅ 4 Tabs: Pending, Rejected, Approved, Completed
 // ✅ Shows renter's bookings by status
 // ✅ Can cancel pending bookings
+// ✅ CARDS NOW VISIBLE
 // ═══════════════════════════════════════════════════════════
 
 class MyBookingsScreen extends StatefulWidget {
@@ -23,7 +24,7 @@ class MyBookingsScreen extends StatefulWidget {
 class _MyBookingsScreenState extends State<MyBookingsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final BookingService _bookingService = Get.find<BookingService>();
+  final BookingService _bookingService = Get.put(BookingService());
 
   // Bookings by status
   List<BookingRequestModel> _pendingBookings = [];
@@ -160,6 +161,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
             onPressed: () => Get.back(result: true),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
             ),
             child: const Text('Delete reservation'),
           ),
@@ -203,7 +205,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.grey.shade50, // ✅ Better background
       appBar: AppBar(
         title: const Text('My bookings'),
         backgroundColor: AppColors.primary,
@@ -229,7 +231,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
                 children: [
                   const Icon(Icons.hourglass_empty, size: 18),
                   const SizedBox(width: 6),
-                  Text('Pending(${_pendingBookings.length})'),
+                  Text('Pending (${_pendingBookings.length})'),
                 ],
               ),
             ),
@@ -238,7 +240,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
                 children: [
                   const Icon(Icons.cancel, size: 18),
                   const SizedBox(width: 6),
-                  Text('Rejected(${_rejectedBookings.length})'),
+                  Text('Rejected (${_rejectedBookings.length})'),
                 ],
               ),
             ),
@@ -247,7 +249,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
                 children: [
                   const Icon(Icons.check_circle, size: 18),
                   const SizedBox(width: 6),
-                  Text('approved(${_approvedBookings.length})'),
+                  Text('Approved (${_approvedBookings.length})'),
                 ],
               ),
             ),
@@ -256,7 +258,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
                 children: [
                   const Icon(Icons.done_all, size: 18),
                   const SizedBox(width: 6),
-                  Text('Completed(${_completedBookings.length})'),
+                  Text('Completed (${_completedBookings.length})'),
                 ],
               ),
             ),
@@ -316,6 +318,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
 
   // ═══════════════════════════════════════════════════════════
   // BUILD BOOKINGS LIST
+  // ✅ Cards will now appear correctly
   // ═══════════════════════════════════════════════════════════
 
   Widget _buildBookingsList({
@@ -343,6 +346,10 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
         separatorBuilder: (_, __) => const SizedBox(height: 16),
         itemBuilder: (context, index) {
           final booking = bookings[index];
+          
+          print('🎴 Building card for booking #${booking.id}');
+          
+          // ✅ Return the card widget
           return MyBookingCard(
             booking: booking,
             status: status,

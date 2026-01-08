@@ -9,10 +9,10 @@ import 'package:hommie/helpers/base_url.dart';
 import 'package:http/http.dart' as http;
 
 // ═══════════════════════════════════════════════════════════
-// POST AD CONTROLLER - WITH 401 HANDLING
-// ✅ Validates token before publishing
-// ✅ Handles 401 errors gracefully
-// ✅ Prompts user to re-login after approval
+// POST AD CONTROLLER - COMPLETE FIX
+// ✅ Fixed navigation (no snackbar disposal errors)
+// ✅ Fixed image URL handling (images display correctly)
+// ✅ Handles both full URLs and relative paths
 // ═══════════════════════════════════════════════════════════
 
 class PostAdController extends GetxController {
@@ -83,9 +83,9 @@ class PostAdController extends GetxController {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // FETCH MY APARTMENTS
-  // ✅ FIXED: Only shows apartments published by current owner
-  // Filters by user_id to ensure each owner sees only their own apartments
+  // FETCH MY APARTMENTS - FIXED IMAGE URL HANDLING
+  // ✅ Constructs full URLs like apartment card expects
+  // ✅ Handles relative paths from backend
   // ═══════════════════════════════════════════════════════════
 
   Future<void> fetchMyApartments() async {
@@ -94,7 +94,7 @@ class PostAdController extends GetxController {
 
       print('');
       print('═══════════════════════════════════════════════════════════');
-      print('📥 FETCHING MY APARTMENTS ONLY');
+      print('📥 FETCHING MY APARTMENTS');
       print('═══════════════════════════════════════════════════════════');
 
       final token = await _tokenService.getAccessToken();
@@ -104,7 +104,6 @@ class PostAdController extends GetxController {
         return;
       }
       
-      // ✅ CRITICAL: Get current user ID
       final currentUserId = await _tokenService.getUserId();
       
       if (currentUserId == null) {
@@ -153,28 +152,38 @@ class PostAdController extends GetxController {
 
         for (var json in apartmentsJson) {
           try {
-            final apartment = ApartmentModel.fromJson(json);
+            print('');
+            print('   Processing apartment:');
+            print('      Raw JSON: ${jsonEncode(json)}');
             
-            // ✅ CRITICAL: Only add apartments that belong to current owner
+            // ✅ FIX IMAGE URLS BEFORE PARSING
+            final fixedJson = _fixImageUrls(json);
+            
+            print('      Fixed JSON: ${jsonEncode(fixedJson)}');
+            
+            final apartment = ApartmentModel.fromJson(fixedJson);
+            
             if (apartment.userId == currentUserId) {
               apartments.add(apartment);
-              print('   ✅ Added: ${apartment.title} (user_id: ${apartment.userId})');
+              print('      ✅ Added: ${apartment.title}');
+              print('         Main Image: ${apartment.mainImage}');
+              print('         Image URLs: ${apartment.imageUrls}');
             } else {
-              print('   ⏭️  Skipped: ${apartment.title} (user_id: ${apartment.userId}, not mine)');
+              print('      ⏭️  Skipped: ${apartment.title} (not mine)');
             }
-          } catch (e) {
-            print('❌ Error parsing apartment: $e');
+          } catch (e, stackTrace) {
+            print('      ❌ Error parsing apartment: $e');
+            print('      Stack: ${stackTrace.toString().split('\n').take(3).join('\n')}');
+            print('      JSON: $json');
           }
         }
 
         myApartments.value = apartments;
         
         print('');
-        print('📊 FILTERING RESULTS:');
-        print('   Total apartments: ${apartmentsJson.length}');
+        print('📊 RESULTS:');
         print('   My apartments: ${apartments.length}');
-        print('   Other owners: ${apartmentsJson.length - apartments.length}');
-        print('✅ Loaded ${apartments.length} of MY apartments only');
+        print('✅ Loaded successfully');
         print('═══════════════════════════════════════════════════════════');
       } else {
         print('❌ Failed with status ${response.statusCode}');
@@ -186,6 +195,102 @@ class PostAdController extends GetxController {
     } finally {
       isLoading.value = false;
     }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // FIX IMAGE URLS - CONVERT RELATIVE PATHS TO FULL URLS
+  // ✅ Handles: apartments/abc.jpg → http://.../storage/apartments/abc.jpg
+  // ✅ Handles: storage/apartments/abc.jpg → http://.../storage/apartments/abc.jpg
+  // ✅ Skips already full URLs
+  // ═══════════════════════════════════════════════════════════
+  
+  Map<String, dynamic> _fixImageUrls(Map<String, dynamic> json) {
+    final baseUrl = BaseUrl.pubBaseUrl;
+    
+    print('      🔧 Fixing image URLs...');
+    print('         Base URL: $baseUrl');
+    
+    // Fix main_image
+    if (json.containsKey('main_image') && json['main_image'] != null) {
+      final mainImage = json['main_image'] as String;
+      
+      print('         Original main_image: $mainImage');
+      
+      if (mainImage.isNotEmpty && !mainImage.startsWith('http')) {
+        // Remove leading 'storage/' if it exists
+        String cleanPath = mainImage;
+        if (cleanPath.startsWith('storage/')) {
+          cleanPath = cleanPath.substring(8); // Remove 'storage/'
+        }
+        
+        // Construct full URL
+        json['main_image'] = '$baseUrl/storage/$cleanPath';
+        print('         ✅ Fixed main_image: ${json['main_image']}');
+      } else if (mainImage.isEmpty) {
+        print('         ⚠️  Empty main_image');
+      } else {
+        print('         ✓ Already full URL');
+      }
+    } else {
+      print('         ⚠️  No main_image field');
+    }
+    
+    // Fix images array
+    if (json.containsKey('images')) {
+      final images = json['images'];
+      
+      print('         Original images type: ${images.runtimeType}');
+      print('         Original images value: $images');
+      
+      if (images is String && images.isNotEmpty) {
+        // JSON string - parse it
+        try {
+          final imagesList = jsonDecode(images) as List;
+          print('         Parsed ${imagesList.length} images from JSON string');
+          
+          final fixedImages = imagesList.map((img) {
+            if (img is String && img.isNotEmpty && !img.startsWith('http')) {
+              // Remove leading 'storage/' if it exists
+              String cleanPath = img;
+              if (cleanPath.startsWith('storage/')) {
+                cleanPath = cleanPath.substring(8);
+              }
+              return '$baseUrl/storage/$cleanPath';
+            }
+            return img;
+          }).toList();
+          
+          json['images'] = jsonEncode(fixedImages);
+          print('         ✅ Fixed ${fixedImages.length} images (as JSON string)');
+        } catch (e) {
+          print('         ⚠️  Error parsing images JSON: $e');
+        }
+      } else if (images is List) {
+        // Already a list
+        print('         Processing ${images.length} images from list');
+        
+        final fixedImages = images.map((img) {
+          if (img is String && img.isNotEmpty && !img.startsWith('http')) {
+            // Remove leading 'storage/' if it exists
+            String cleanPath = img;
+            if (cleanPath.startsWith('storage/')) {
+              cleanPath = cleanPath.substring(8);
+            }
+            return '$baseUrl/storage/$cleanPath';
+          }
+          return img;
+        }).toList();
+        
+        json['images'] = fixedImages;
+        print('         ✅ Fixed ${fixedImages.length} images (as list)');
+      } else if (images == null || (images is String && images.isEmpty)) {
+        print('         ⚠️  Empty or null images');
+      }
+    } else {
+      print('         ⚠️  No images field');
+    }
+    
+    return json;
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -213,7 +318,7 @@ class PostAdController extends GetxController {
         },
       );
 
-      print('📡 DELETE /apartments/$apartmentId - Status: ${response.statusCode}');
+      print('📡 DELETE - Status: ${response.statusCode}');
 
       if (response.statusCode == 200 || response.statusCode == 204) {
         print('✅ Apartment deleted successfully');
@@ -265,7 +370,7 @@ class PostAdController extends GetxController {
   Future<void> saveDraftImagesFromFiles(List<String> imagePaths) async {
     print('');
     print('═══════════════════════════════════════════════════════════');
-    print('💾 SAVING DRAFT IMAGES FROM FILES');
+    print('💾 SAVING DRAFT IMAGES');
     print('──────────────────────────────────────────────────────────');
     print('   Number of images: ${imagePaths.length}');
 
@@ -280,10 +385,9 @@ class PostAdController extends GetxController {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // PUBLISH DRAFT - WITH TOKEN VALIDATION & 401 HANDLING
-  // ✅ Checks token before making request
-  // ✅ Handles 401 errors with helpful message
-  // ✅ Prompts user to re-login
+  // PUBLISH DRAFT - FIXED NAVIGATION (NO SNACKBAR ERRORS)
+  // ✅ Navigate first, then show snackbar
+  // ✅ Prevents disposed snackbar errors
   // ═══════════════════════════════════════════════════════════
 
   Future<void> publishDraft() async {
@@ -310,7 +414,6 @@ class PostAdController extends GetxController {
     }
 
     try {
-      // ✅ STEP 1: Validate token exists
       final token = await _tokenService.getAccessToken();
 
       if (token == null || token.isEmpty) {
@@ -321,7 +424,7 @@ class PostAdController extends GetxController {
       
       print('✅ Token found: ${token.substring(0, 20)}...');
 
-      final url = '${BaseUrl.pubBaseUrl}/api/apartments';
+      final url = '${BaseUrl.pubBaseUrl}/api/owner/apartments';
       print('   Endpoint: $url');
 
       var request = http.MultipartRequest('POST', Uri.parse(url));
@@ -410,7 +513,6 @@ class PostAdController extends GetxController {
       print('   Status: ${response.statusCode}');
       print('   Body: ${response.body}');
 
-      // ✅ STEP 2: Handle 401 Unauthenticated
       if (response.statusCode == 401) {
         print('');
         print('❌ 401 UNAUTHENTICATED - TOKEN INVALID');
@@ -423,18 +525,49 @@ class PostAdController extends GetxController {
       if (response.statusCode == 200 || response.statusCode == 201) {
         print('');
         print('✅ APARTMENT PUBLISHED SUCCESSFULLY');
+        
+        // Parse response to see returned images
+        try {
+          final responseData = jsonDecode(response.body);
+          print('📦 Backend Response:');
+          print('   ${jsonEncode(responseData)}');
+          
+          if (responseData.containsKey('apartment')) {
+            final apt = responseData['apartment'];
+            print('');
+            print('🖼️  Image URLs from backend:');
+            print('   Main Image: ${apt['main_image']}');
+            if (apt.containsKey('images')) {
+              print('   All Images: ${apt['images']}');
+            }
+          }
+        } catch (e) {
+          print('⚠️  Could not parse response: $e');
+        }
+        
         print('═══════════════════════════════════════════════════════════');
 
-        await fetchMyApartments();
+        // Clear draft first
         clearDraft();
         
+        // ✅ FIXED: Navigate BEFORE refreshing (prevents disposed snackbar)
+        Get.back(); // Close current screen first
+        print('🏠 Navigated back to PostAdScreen');
+        
+        // Small delay to ensure navigation completes
+        await Future.delayed(const Duration(milliseconds: 100));
+        
+        // Refresh apartment list
+        await fetchMyApartments();
+        
+        // Show success message AFTER navigation
         Get.snackbar(
           'Success',
           'Apartment published successfully!',
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: const Color(0xFF22C55E),
           colorText: Colors.white,
-          duration: const Duration(seconds: 3),
+          duration: const Duration(seconds: 2),
         );
       } else {
         print('');
@@ -464,7 +597,6 @@ class PostAdController extends GetxController {
 
   // ═══════════════════════════════════════════════════════════
   // SHOW RE-LOGIN MESSAGE
-  // ✅ Helpful message for 401 errors
   // ═══════════════════════════════════════════════════════════
   
   void _showReLoginMessage(String reason) {
@@ -479,7 +611,6 @@ class PostAdController extends GetxController {
       margin: const EdgeInsets.all(16),
       mainButton: TextButton(
         onPressed: () {
-          // Logout and redirect
           box.erase();
           Get.offAllNamed('/');
         },

@@ -9,12 +9,12 @@ import 'package:hommie/data/services/approval_status_service.dart';
 // ═══════════════════════════════════════════════════════════
 
 class FavoritesScreen extends StatelessWidget {
-   const FavoritesScreen({super.key});
+  const FavoritesScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final approvalService = Get.find<ApprovalStatusService>();
-    
+    final approvalService = Get.put(ApprovalStatusService());
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("Favorites"),
@@ -27,7 +27,7 @@ class FavoritesScreen extends StatelessWidget {
             onRefresh: () => approvalService.manualRefresh(),
           );
         }
-        
+
         // ✅ Approved - show favorites
         return _buildFavoritesContent();
       }),
@@ -42,11 +42,7 @@ class FavoritesScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.favorite_border,
-              size: 80,
-              color: Colors.grey.shade400,
-            ),
+            Icon(Icons.favorite_border, size: 80, color: Colors.grey.shade400),
             const SizedBox(height: 16),
             const Text(
               'لا توجد مفضلات',
@@ -59,10 +55,7 @@ class FavoritesScreen extends StatelessWidget {
             const SizedBox(height: 8),
             const Text(
               'يمكنك إضافة شقق إلى المفضلة للوصول إليها بسهولة',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.black54,
-              ),
+              style: TextStyle(fontSize: 14, color: Colors.black54),
               textAlign: TextAlign.center,
             ),
           ],

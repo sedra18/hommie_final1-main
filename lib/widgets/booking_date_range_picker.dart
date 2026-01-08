@@ -3,11 +3,49 @@ import 'package:get/get.dart';
 import 'package:hommie/app/utils/app_colors.dart';
 
 // ═══════════════════════════════════════════════════════════
+// BOOKING DATE CONTROLLER (GetX)
+// ✅ Manages date state reactively
+// ✅ Works inside GetX dialogs
+// ═══════════════════════════════════════════════════════════
+
+class BookingDateController extends GetxController {
+  final Rx<DateTime?> startDate = Rx<DateTime?>(null);
+  final Rx<DateTime?> endDate = Rx<DateTime?>(null);
+
+  void updateDates(DateTime start, DateTime end) {
+    print('');
+    print('═══════════════════════════════════════════════════════════');
+    print('📅 [BookingDateController] Dates updated');
+    print('   Start: $start');
+    print('   End: $end');
+    print('═══════════════════════════════════════════════════════════');
+    
+    startDate.value = start;
+    endDate.value = end;
+    
+    print('✅ Reactive state updated');
+    print('   startDate.value: ${startDate.value}');
+    print('   endDate.value: ${endDate.value}');
+  }
+
+  void reset() {
+    startDate.value = null;
+    endDate.value = null;
+  }
+
+  int get duration {
+    if (startDate.value == null || endDate.value == null) return 0;
+    return endDate.value!.difference(startDate.value!).inDays;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
 // DATE RANGE PICKER FOR BOOKING
 // ✅ Select start_date and end_date together
 // ✅ Beautiful UI with calendar
 // ✅ Validates dates (end > start)
 // ✅ Returns formatted dates for API
+// ✅ WORKS WITH GETX REACTIVE STATE
 // ═══════════════════════════════════════════════════════════
 
 class BookingDateRangePicker extends StatefulWidget {
@@ -35,6 +73,19 @@ class _BookingDateRangePickerState extends State<BookingDateRangePicker> {
     super.initState();
     startDate = widget.initialStartDate;
     endDate = widget.initialEndDate;
+  }
+
+  @override
+  void didUpdateWidget(BookingDateRangePicker oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // ✅ Update local state when parent changes
+    if (widget.initialStartDate != oldWidget.initialStartDate ||
+        widget.initialEndDate != oldWidget.initialEndDate) {
+      setState(() {
+        startDate = widget.initialStartDate;
+        endDate = widget.initialEndDate;
+      });
+    }
   }
 
   @override
@@ -69,7 +120,7 @@ class _BookingDateRangePickerState extends State<BookingDateRangePicker> {
                 ),
                 
                 // Arrow
-                Icon(
+                const Icon(
                   Icons.arrow_forward,
                   color: AppColors.primary,
                   size: 20,
@@ -97,7 +148,7 @@ class _BookingDateRangePickerState extends State<BookingDateRangePicker> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.date_range,
                     color: AppColors.primary,
                     size: 24,
@@ -105,9 +156,9 @@ class _BookingDateRangePickerState extends State<BookingDateRangePicker> {
                   const SizedBox(width: 12),
                   Text(
                     startDate == null || endDate == null
-                        ? 'اختر تاريخ الحجز'
-                        : 'تغيير التاريخ',
-                    style: TextStyle(
+                        ? 'Choose the reservation date'
+                        : 'Change date',
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: AppColors.primary,
@@ -142,7 +193,7 @@ class _BookingDateRangePickerState extends State<BookingDateRangePicker> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      '${_calculateDuration()} ${_calculateDuration() == 1 ? 'يوم' : 'أيام'}',
+                      '${_calculateDuration()} ${_calculateDuration() == 1 ? 'Day' : 'Days'}',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -212,7 +263,7 @@ class _BookingDateRangePickerState extends State<BookingDateRangePicker> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
+            colorScheme: const ColorScheme.light(
               primary: AppColors.primary,
               onPrimary: Colors.white,
               surface: Colors.white,
@@ -265,7 +316,10 @@ class _BookingDateRangePickerState extends State<BookingDateRangePicker> {
 }
 
 // ═══════════════════════════════════════════════════════════
-// EXAMPLE USAGE IN BOOKING SCREEN
+// BOOKING SCREEN - WITH GETX REACTIVE STATE
+// ✅ Button enables when dates selected
+// ✅ Works in GetX dialogs
+// ✅ Payment method radio buttons visible
 // ═══════════════════════════════════════════════════════════
 
 class BookingScreen extends StatefulWidget {
@@ -276,9 +330,15 @@ class BookingScreen extends StatefulWidget {
 }
 
 class _BookingScreenState extends State<BookingScreen> {
-  DateTime? selectedStartDate;
-  DateTime? selectedEndDate;
-  String paymentMethod = 'cash';
+  // ✅ Use GetX controller for reactive state
+  final BookingDateController _dateController = Get.put(BookingDateController());
+  final RxString paymentMethod = 'cash'.obs;
+
+  @override
+  void dispose() {
+    _dateController.reset();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -286,13 +346,14 @@ class _BookingScreenState extends State<BookingScreen> {
       appBar: AppBar(
         title: const Text('Book Apartment'),
         backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ✅ Date Range Picker
+        
             const Text(
               'اختر تاريخ الحجز',
               style: TextStyle(
@@ -302,18 +363,65 @@ class _BookingScreenState extends State<BookingScreen> {
             ),
             const SizedBox(height: 12),
             
-            BookingDateRangePicker(
+            // ✅ Wrapped with Obx to listen to reactive changes
+            Obx(() => BookingDateRangePicker(
+              initialStartDate: _dateController.startDate.value,
+              initialEndDate: _dateController.endDate.value,
               onDateRangeSelected: (start, end) {
-                setState(() {
-                  selectedStartDate = start;
-                  selectedEndDate = end;
-                });
+                print('');
+                print('═══════════════════════════════════════════════════════════');
+                print('📅 [BOOKING SCREEN] Date range callback received');
+                print('   Start: $start');
+                print('   End: $end');
+                print('═══════════════════════════════════════════════════════════');
+                
+                _dateController.updateDates(start, end);
+
+                print('✅ Controller updated!');
+                print('   Button enabled: ${_dateController.startDate.value != null && _dateController.endDate.value != null}');
               },
-            ),
+            )),
 
             const SizedBox(height: 24),
 
-            // Payment Method
+            // ═══════════════════════════════════════════════════════════
+            // DEBUG INFO BOX (Shows selected dates)
+            // ═══════════════════════════════════════════════════════════
+            Obx(() {
+              if (_dateController.startDate.value != null && 
+                  _dateController.endDate.value != null) {
+                return Container(
+                  padding: const EdgeInsets.all(12),
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '✅ التواريخ المحددة:',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue.shade900,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text('من: ${_formatDate(_dateController.startDate.value!)}'),
+                      Text('إلى: ${_formatDate(_dateController.endDate.value!)}'),
+                      Text('المدة: ${_dateController.duration} ${_dateController.duration == 1 ? 'يوم' : 'أيام'}'),
+                    ],
+                  ),
+                );
+              }
+              return const SizedBox.shrink();
+            }),
+
+            // ═══════════════════════════════════════════════════════════
+            // PAYMENT METHOD SECTION
+            // ═══════════════════════════════════════════════════════════
             const Text(
               'طريقة الدفع',
               style: TextStyle(
@@ -323,48 +431,142 @@ class _BookingScreenState extends State<BookingScreen> {
             ),
             const SizedBox(height: 12),
             
-            RadioListTile<String>(
-              title: const Text('نقداً (Cash)'),
-              value: 'cash',
-              groupValue: paymentMethod,
-              onChanged: (value) {
-                setState(() {
-                  paymentMethod = value!;
-                });
-              },
-            ),
-            RadioListTile<String>(
-              title: const Text('بطاقة ائتمان (Credit Card)'),
-              value: 'credit_card',
-              groupValue: paymentMethod,
-              onChanged: (value) {
-                setState(() {
-                  paymentMethod = value!;
-                });
-              },
-            ),
+            // ✅ Payment method card
+            Obx(() => Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Column(
+                children: [
+                  // Cash option
+                  RadioListTile<String>(
+                    title: const Row(
+                      children: [
+                        Icon(Icons.money, color: Colors.green),
+                        SizedBox(width: 8),
+                        Text('نقداً (Cash)'),
+                      ],
+                    ),
+                    value: 'cash',
+                    groupValue: paymentMethod.value,
+                    activeColor: AppColors.primary,
+                    onChanged: (value) {
+                      print('💳 Payment method changed to: $value');
+                      paymentMethod.value = value!;
+                    },
+                  ),
+                  
+                  const Divider(height: 1),
+                  
+                  // Credit card option
+                  RadioListTile<String>(
+                    title: const Row(
+                      children: [
+                        Icon(Icons.credit_card, color: Colors.blue),
+                        SizedBox(width: 8),
+                        Text('بطاقة ائتمان (Credit Card)'),
+                      ],
+                    ),
+                    value: 'credit_card',
+                    groupValue: paymentMethod.value,
+                    activeColor: AppColors.primary,
+                    onChanged: (value) {
+                      print('💳 Payment method changed to: $value');
+                      paymentMethod.value = value!;
+                    },
+                  ),
+                ],
+              ),
+            )),
 
             const SizedBox(height: 32),
 
-            // Submit Button
+            // ═══════════════════════════════════════════════════════════
+            // SUBMIT BUTTON SECTION
+            // ═══════════════════════════════════════════════════════════
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
-                onPressed: selectedStartDate != null && selectedEndDate != null
-                    ? _submitBooking
-                    : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text(
-                  'تأكيد الحجز',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-              ),
+              child: Obx(() {
+                final canSubmit = _dateController.startDate.value != null && 
+                                  _dateController.endDate.value != null;
+                
+                return Column(
+                  children: [
+                    // ✅ Status indicator
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: canSubmit
+                            ? Colors.green.shade100
+                            : Colors.orange.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            canSubmit
+                                ? Icons.check_circle
+                                : Icons.warning,
+                            size: 20,
+                            color: canSubmit
+                                ? Colors.green.shade700
+                                : Colors.orange.shade700,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            canSubmit
+                                ? 'جاهز للحجز ✓'
+                                : 'الرجاء اختيار التواريخ أولاً',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: canSubmit
+                                  ? Colors.green.shade700
+                                  : Colors.orange.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // ✅ Confirm booking button
+                    ElevatedButton(
+                      onPressed: canSubmit
+                          ? () {
+                              print('');
+                              print('🔘 BUTTON PRESSED!');
+                              print('   Start: ${_dateController.startDate.value}');
+                              print('   End: ${_dateController.endDate.value}');
+                              print('   Payment: ${paymentMethod.value}');
+                              _submitBooking();
+                            }
+                          : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        disabledBackgroundColor: Colors.grey.shade300,
+                        foregroundColor: Colors.white,
+                        disabledForegroundColor: Colors.grey.shade600,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 2,
+                      ),
+                      child: const Text(
+                        'تأكيد الحجز',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }),
             ),
           ],
         ),
@@ -374,49 +576,69 @@ class _BookingScreenState extends State<BookingScreen> {
 
   // ═══════════════════════════════════════════════════════════
   // SUBMIT BOOKING
-  // ✅ Format dates for API
   // ═══════════════════════════════════════════════════════════
   
   void _submitBooking() {
-    if (selectedStartDate == null || selectedEndDate == null) {
+    print('');
+    print('═══════════════════════════════════════════════════════════');
+    print('🚀 [SUBMIT BOOKING] Called');
+    print('═══════════════════════════════════════════════════════════');
+
+    if (_dateController.startDate.value == null || _dateController.endDate.value == null) {
+      print('❌ Dates are null!');
+      
       Get.snackbar(
         'خطأ',
         'الرجاء اختيار تاريخ الحجز',
         backgroundColor: Colors.red,
         colorText: Colors.white,
+        icon: const Icon(Icons.error, color: Colors.white),
+        snackPosition: SnackPosition.TOP,
       );
       return;
     }
 
     // ✅ Format dates for API (YYYY-MM-DD)
-    final startDateStr = _formatDateForAPI(selectedStartDate!);
-    final endDateStr = _formatDateForAPI(selectedEndDate!);
+    final startDateStr = _formatDateForAPI(_dateController.startDate.value!);
+    final endDateStr = _formatDateForAPI(_dateController.endDate.value!);
 
     // ✅ Create JSON body
     final bookingData = {
       "apartment_id": 3,
       "start_date": startDateStr,
       "end_date": endDateStr,
-      "payment_method": paymentMethod,
+      "payment_method": paymentMethod.value,
     };
 
-    print('');
-    print('═══════════════════════════════════════════════════════════');
     print('📤 BOOKING REQUEST');
     print('   JSON: $bookingData');
+    print('   Duration: ${_dateController.duration} days');
     print('═══════════════════════════════════════════════════════════');
 
     // TODO: Send to API
+    // Example: await bookingService.createBooking(bookingData);
+    
     Get.snackbar(
-      'جاري الحجز...',
-      'Start: $startDateStr\nEnd: $endDateStr',
+      'تم الحجز!',
+      'من: $startDateStr\nإلى: $endDateStr\nالمدة: ${_dateController.duration} ${_dateController.duration == 1 ? 'يوم' : 'أيام'}\nالدفع: ${paymentMethod.value == 'cash' ? 'نقداً' : 'بطاقة ائتمان'}',
       backgroundColor: Colors.green,
       colorText: Colors.white,
-      duration: const Duration(seconds: 3),
+      duration: const Duration(seconds: 4),
+      icon: const Icon(Icons.check_circle, color: Colors.white),
+      snackPosition: SnackPosition.TOP,
     );
   }
 
-  // ✅ Format date for API (YYYY-MM-DD)
+  // ═══════════════════════════════════════════════════════════
+  // HELPER METHODS
+  // ═══════════════════════════════════════════════════════════
+  
+  // Format for display (DD/MM/YYYY)
+  String _formatDate(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+  }
+
+  // ✅ Format for API (YYYY-MM-DD)
   String _formatDateForAPI(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }

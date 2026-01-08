@@ -134,9 +134,9 @@ class _ApartmentImagesViewState extends State<ApartmentImagesView> {
       print('📤 PUBLISHING APARTMENT');
       print('──────────────────────────────────────────────────────────');
 
-      // ✅ FIX: Use Get.find() instead of Get.put()
+      
       // This gets the existing controller instead of creating a new one
-      final c = Get.find<PostAdController>();
+      final c = Get.put(PostAdController());
 
       // Convert XFile list to path strings
       final imagePaths = _selectedImages.map((file) => file.path).toList();
@@ -198,7 +198,7 @@ class _ApartmentImagesViewState extends State<ApartmentImagesView> {
           'فشل نشر الشقة: $e',
           backgroundColor: Colors.red,
           colorText: Colors.white,
-          icon: const Icon(Icons. error, color: Colors.white),
+          icon: const Icon(Icons.error, color: Colors.white),
           duration: const Duration(seconds: 3),
         );
       }

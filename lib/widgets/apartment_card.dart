@@ -29,15 +29,15 @@ class UnifiedApartmentCard extends StatelessWidget {
   // ═══════════════════════════════════════════════════════════
   // CHECK IF THIS IS USER'S OWN APARTMENT
   // ═══════════════════════════════════════════════════════════
-  
+
   bool get isMyApartment {
     final box = GetStorage();
     final currentUserId = box.read('user_id') as int?;
-    
+
     if (currentUserId == null || apartment.userId == null) {
       return false;
     }
-    
+
     return apartment.userId == currentUserId;
   }
 
@@ -48,7 +48,7 @@ class UnifiedApartmentCard extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         // Blue border for my apartments
-        side: isMyApartment 
+        side: isMyApartment
             ? const BorderSide(color: AppColors.primary, width: 2)
             : BorderSide.none,
       ),
@@ -62,11 +62,10 @@ class UnifiedApartmentCard extends StatelessWidget {
             // ═══════════════════════════════════════════════════
             // IMAGE SECTION WITH BADGES
             // ═══════════════════════════════════════════════════
-            
             Stack(
               children: [
                 _buildImageSection(),
-                
+
                 // "My Apartment" Badge (top-left)
                 if (isMyApartment)
                   Positioned(
@@ -91,11 +90,7 @@ class UnifiedApartmentCard extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: const [
-                          Icon(
-                            Icons.home,
-                            size: 16,
-                            color: Colors.white,
-                          ),
+                          Icon(Icons.home, size: 16, color: Colors.white),
                           SizedBox(width: 4),
                           Text(
                             'My Apartment',
@@ -109,7 +104,7 @@ class UnifiedApartmentCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                
+
                 // Favorite Button (top-right) - Only for renters
                 if (!isMyApartment && onFavoriteToggle != null)
                   Positioned(
@@ -143,11 +138,10 @@ class UnifiedApartmentCard extends StatelessWidget {
                   ),
               ],
             ),
-            
+
             // ═══════════════════════════════════════════════════
             // CONTENT SECTION
             // ═══════════════════════════════════════════════════
-            
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -169,7 +163,7 @@ class UnifiedApartmentCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      
+
                       // Edit & Delete buttons (only for my apartments)
                       if (isMyApartment && showOwnerActions) ...[
                         const SizedBox(width: 8),
@@ -177,9 +171,9 @@ class UnifiedApartmentCard extends StatelessWidget {
                       ],
                     ],
                   ),
-                  
+
                   const SizedBox(height: 8),
-                  
+
                   // Location
                   Row(
                     children: [
@@ -202,14 +196,14 @@ class UnifiedApartmentCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  
+
                   const SizedBox(height: 12),
-                  
+
                   // ✅ RATING AS STARS (NOT NUMBERS!)
                   _buildRatingStars(),
-                  
+
                   const SizedBox(height: 12),
-                  
+
                   // Details Row (Rooms + Size)
                   Row(
                     children: [
@@ -224,9 +218,9 @@ class UnifiedApartmentCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  
+
                   const SizedBox(height: 12),
-                  
+
                   // Price and Status
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -252,7 +246,7 @@ class UnifiedApartmentCard extends StatelessWidget {
                           ),
                         ],
                       ),
-                      
+
                       // "Cannot Book" badge (for my apartments)
                       if (isMyApartment)
                         Container(
@@ -263,9 +257,7 @@ class UnifiedApartmentCard extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: Colors.orange.shade100,
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: Colors.orange.shade300,
-                            ),
+                            border: Border.all(color: Colors.orange.shade300),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -301,41 +293,33 @@ class UnifiedApartmentCard extends StatelessWidget {
   // ═══════════════════════════════════════════════════════════
   // BUILD RATING STARS - ✅ SHOWS STARS NOT NUMBERS!
   // ═══════════════════════════════════════════════════════════
-  
+
   Widget _buildRatingStars() {
     final rating = apartment.avgRating;
     final fullStars = rating.floor();
     final hasHalfStar = (rating - fullStars) >= 0.5;
-    
+
     return Row(
       children: [
         // Full stars
-        ...List.generate(fullStars, (index) => const Icon(
-          Icons.star,
-          size: 18,
-          color: Colors.amber,
-        )),
-        
+        ...List.generate(
+          fullStars,
+          (index) => const Icon(Icons.star, size: 18, color: Colors.amber),
+        ),
+
         // Half star
         if (hasHalfStar)
-          const Icon(
-            Icons.star_half,
-            size: 18,
-            color: Colors.amber,
-          ),
-        
+          const Icon(Icons.star_half, size: 18, color: Colors.amber),
+
         // Empty stars
         ...List.generate(
           5 - fullStars - (hasHalfStar ? 1 : 0),
-          (index) => Icon(
-            Icons.star_border,
-            size: 18,
-            color: Colors.grey.shade400,
-          ),
+          (index) =>
+              Icon(Icons.star_border, size: 18, color: Colors.grey.shade400),
         ),
-        
+
         const SizedBox(width: 6),
-        
+
         // Rating number
         Text(
           rating.toStringAsFixed(1),
@@ -352,7 +336,7 @@ class UnifiedApartmentCard extends StatelessWidget {
   // ═══════════════════════════════════════════════════════════
   // OWNER ACTIONS (Edit & Delete Buttons)
   // ═══════════════════════════════════════════════════════════
-  
+
   Widget _buildOwnerActions(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -369,16 +353,13 @@ class UnifiedApartmentCard extends StatelessWidget {
             color: Colors.blue,
             iconSize: 20,
             tooltip: 'Edit',
-            constraints: const BoxConstraints(
-              minWidth: 40,
-              minHeight: 40,
-            ),
+            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
             padding: const EdgeInsets.all(8),
           ),
         ),
-        
+
         const SizedBox(width: 8),
-        
+
         // Delete Button
         Container(
           decoration: BoxDecoration(
@@ -391,10 +372,7 @@ class UnifiedApartmentCard extends StatelessWidget {
             color: Colors.red,
             iconSize: 20,
             tooltip: 'Delete',
-            constraints: const BoxConstraints(
-              minWidth: 40,
-              minHeight: 40,
-            ),
+            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
             padding: const EdgeInsets.all(8),
           ),
         ),
@@ -404,7 +382,7 @@ class UnifiedApartmentCard extends StatelessWidget {
 
   void _handleEdit(BuildContext context) {
     print('✏️ Edit apartment: ${apartment.title} (ID: ${apartment.id})');
-    
+
     Get.snackbar(
       'Edit',
       'Edit feature coming soon...',
@@ -417,7 +395,7 @@ class UnifiedApartmentCard extends StatelessWidget {
 
   void _handleDelete(BuildContext context) {
     print('🗑️ Delete requested: ${apartment.title} (ID: ${apartment.id})');
-    
+
     Get.dialog(
       AlertDialog(
         title: const Text('Delete Apartment'),
@@ -436,14 +414,14 @@ class UnifiedApartmentCard extends StatelessWidget {
             onPressed: () async {
               Get.back();
               print('✅ Delete confirmed');
-              
+
               Get.dialog(
                 const Center(child: CircularProgressIndicator()),
                 barrierDismissible: false,
               );
-              
+
               try {
-                final controller = Get.find<OwnerHomeController>();
+                final controller = Get.put(OwnerHomeController());
                 await controller.deleteApartment(apartment.id);
                 Get.back();
               } catch (e) {
@@ -465,7 +443,7 @@ class UnifiedApartmentCard extends StatelessWidget {
   // ═══════════════════════════════════════════════════════════
   // IMAGE SECTION
   // ═══════════════════════════════════════════════════════════
-  
+
   Widget _buildImageSection() {
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
@@ -483,9 +461,7 @@ class UnifiedApartmentCard extends StatelessWidget {
                 return Container(
                   height: 200,
                   color: Colors.grey.shade200,
-                  child: const Center(
-                    child: CircularProgressIndicator(),
-                  ),
+                  child: const Center(child: CircularProgressIndicator()),
                 );
               },
             )
@@ -521,11 +497,8 @@ class UnifiedApartmentCard extends StatelessWidget {
   // ═══════════════════════════════════════════════════════════
   // DETAIL CHIP
   // ═══════════════════════════════════════════════════════════
-  
-  Widget _buildDetailChip({
-    required IconData icon,
-    required String label,
-  }) {
+
+  Widget _buildDetailChip({required IconData icon, required String label}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
@@ -535,11 +508,7 @@ class UnifiedApartmentCard extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 16,
-            color: AppColors.primary,
-          ),
+          Icon(icon, size: 16, color: AppColors.primary),
           const SizedBox(width: 4),
           Text(
             label,
@@ -557,13 +526,10 @@ class UnifiedApartmentCard extends StatelessWidget {
   // ═══════════════════════════════════════════════════════════
   // NAVIGATE TO DETAILS
   // ═══════════════════════════════════════════════════════════
-  
+
   void _navigateToDetails() {
     print('📍 Navigating to details for: ${apartment.title}');
-    
-    Get.to(
-      () => ApartmentDetailsScreen(),
-      arguments: apartment,
-    );
+
+    Get.to(() => ApartmentDetailsScreen(), arguments: apartment);
   }
 }

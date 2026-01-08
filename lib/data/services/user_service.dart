@@ -13,15 +13,16 @@ import 'package:hommie/data/services/token_storage_service.dart';
 // ═══════════════════════════════════════════════════════════
 
 class UserService extends GetxService {
-  static String _baseUrl = '${BaseUrl.pubBaseUrl}/api'; // ✅ Use 10.0.2.2 for emulator
-  
+  static final String _baseUrl =
+      '${BaseUrl.pubBaseUrl}/api'; // ✅ Use 10.0.2.2 for emulator
+
   // ✅ Observable user data
   final Rx<UserModel?> currentUser = Rx<UserModel?>(null);
   final _isLoadingUser = false.obs;
-  
+
   bool get isLoadingUser => _isLoadingUser.value;
   bool get hasUser => currentUser.value != null;
-  
+
   // Getters for easy access
   String get userName => currentUser.value?.name ?? 'User';
   String get userEmail => currentUser.value?.email ?? 'user@example.com';
@@ -33,14 +34,14 @@ class UserService extends GetxService {
   // FETCH CURRENT USER PROFILE
   // Called on login and can be refreshed on demand
   // ═══════════════════════════════════════════════════════════
-  
+
   Future<void> fetchUserProfile() async {
     try {
       _isLoadingUser.value = true;
-      
-      final tokenService = Get.find<TokenStorageService>();
+
+      final tokenService = Get.put(TokenStorageService());
       final token = await tokenService.getAccessToken();
-      
+
       if (token == null) {
         print('⚠️ No token found, cannot fetch user profile');
         currentUser.value = null;
@@ -48,7 +49,7 @@ class UserService extends GetxService {
       }
 
       print('📥 Fetching user profile...');
-      
+
       final response = await http.get(
         Uri.parse('$_baseUrl/user'), // or '/user/profile'
         headers: {
@@ -59,18 +60,17 @@ class UserService extends GetxService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        
+
         // Parse user data
         currentUser.value = UserModel.fromJson(data);
-        
+
         print('✅ User profile loaded: ${currentUser.value?.name}');
         print('   Email: ${currentUser.value?.email}');
         print('   Role: ${currentUser.value?.role}');
         print('   Status: ${currentUser.value?.approvalStatus}');
-        
+
         // ✅ Force UI update
         currentUser.refresh();
-        
       } else if (response.statusCode == 404) {
         print('⚠️ User profile endpoint not found (404)');
         currentUser.value = null;
@@ -89,7 +89,7 @@ class UserService extends GetxService {
   // ═══════════════════════════════════════════════════════════
   // UPDATE USER PROFILE
   // ═══════════════════════════════════════════════════════════
-  
+
   Future<bool> updateUserProfile({
     String? name,
     String? email,
@@ -97,22 +97,22 @@ class UserService extends GetxService {
   }) async {
     try {
       _isLoadingUser.value = true;
-      
-      final tokenService = Get.find<TokenStorageService>();
+
+      final tokenService = Get.put(TokenStorageService());
       final token = await tokenService.getAccessToken();
-      
+
       if (token == null) {
         print('⚠️ No token found, cannot update profile');
         return false;
       }
 
       print('📤 Updating user profile...');
-      
+
       final body = <String, dynamic>{};
       if (name != null) body['name'] = name;
       if (email != null) body['email'] = email;
       if (phone != null) body['phone'] = phone;
-      
+
       final response = await http.put(
         Uri.parse('$_baseUrl/user'), // or '/user/profile'
         headers: {
@@ -126,9 +126,9 @@ class UserService extends GetxService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         currentUser.value = UserModel.fromJson(data);
-        
+
         print('✅ Profile updated successfully');
-        
+
         Get.snackbar(
           'Success',
           'Profile updated successfully',
@@ -136,11 +136,11 @@ class UserService extends GetxService {
           backgroundColor: const Color(0xFF22C55E),
           colorText: const Color(0xFFFFFFFF),
         );
-        
+
         return true;
       } else {
         print('⚠️ Failed to update profile: ${response.statusCode}');
-        
+
         Get.snackbar(
           'Error',
           'Failed to update profile. Please try again.',
@@ -148,12 +148,12 @@ class UserService extends GetxService {
           backgroundColor: const Color(0xFFEF4444),
           colorText: const Color(0xFFFFFFFF),
         );
-        
+
         return false;
       }
     } catch (e) {
       print('❌ Error updating profile: $e');
-      
+
       Get.snackbar(
         'Error',
         'An error occurred while updating profile.',
@@ -161,7 +161,7 @@ class UserService extends GetxService {
         backgroundColor: const Color(0xFFEF4444),
         colorText: const Color(0xFFFFFFFF),
       );
-      
+
       return false;
     } finally {
       _isLoadingUser.value = false;
@@ -171,7 +171,7 @@ class UserService extends GetxService {
   // ═══════════════════════════════════════════════════════════
   // REFRESH USER PROFILE
   // ═══════════════════════════════════════════════════════════
-  
+
   Future<void> refreshUserProfile() async {
     print('🔄 Refreshing user profile...');
     await fetchUserProfile();
@@ -180,7 +180,7 @@ class UserService extends GetxService {
   // ═══════════════════════════════════════════════════════════
   // CLEAR USER DATA (for logout)
   // ═══════════════════════════════════════════════════════════
-  
+
   void clearUserData() {
     currentUser.value = null;
     print('🔄 User data cleared');
@@ -189,7 +189,7 @@ class UserService extends GetxService {
   // ═══════════════════════════════════════════════════════════
   // GET AVATAR URL
   // ═══════════════════════════════════════════════════════════
-  
+
   String? getAvatarUrl() {
     if (currentUser.value?.avatar != null) {
       // If it's a full URL, return as is
@@ -205,38 +205,38 @@ class UserService extends GetxService {
   // ═══════════════════════════════════════════════════════════
   // UPLOAD AVATAR
   // ═══════════════════════════════════════════════════════════
-  
+
   Future<bool> uploadAvatar(String imagePath) async {
     try {
       _isLoadingUser.value = true;
-      
-      final tokenService = Get.find<TokenStorageService>();
+
+      final tokenService = Get.put(TokenStorageService());
       final token = await tokenService.getAccessToken();
-      
+
       if (token == null) {
         print('⚠️ No token found, cannot upload avatar');
         return false;
       }
 
       print('📤 Uploading avatar...');
-      
+
       var request = http.MultipartRequest(
         'POST',
         Uri.parse('$_baseUrl/user/avatar'),
       );
-      
+
       request.headers['Authorization'] = 'Bearer $token';
       request.files.add(await http.MultipartFile.fromPath('avatar', imagePath));
-      
+
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         currentUser.value = UserModel.fromJson(data);
-        
+
         print('✅ Avatar uploaded successfully');
-        
+
         Get.snackbar(
           'Success',
           'Avatar updated successfully',
@@ -244,7 +244,7 @@ class UserService extends GetxService {
           backgroundColor: const Color(0xFF22C55E),
           colorText: const Color(0xFFFFFFFF),
         );
-        
+
         return true;
       } else {
         print('⚠️ Failed to upload avatar: ${response.statusCode}');

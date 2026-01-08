@@ -18,7 +18,7 @@ class ApartmentsScreen extends StatelessWidget {
     Function(ApartmentModel) onTap,
   ) {
     final image = ApartmentsService.getCleanImageUrl(apartment.mainImage);
-    
+
     return GestureDetector(
       onTap: () => onTap(apartment),
       child: Container(
@@ -71,7 +71,7 @@ class ApartmentsScreen extends StatelessWidget {
                             child: CircularProgressIndicator(
                               value: loadingProgress.expectedTotalBytes != null
                                   ? loadingProgress.cumulativeBytesLoaded /
-                                      loadingProgress.expectedTotalBytes!
+                                        loadingProgress.expectedTotalBytes!
                                   : null,
                             ),
                           );
@@ -79,7 +79,7 @@ class ApartmentsScreen extends StatelessWidget {
                       ),
               ),
             ),
-            
+
             // Info Section
             Expanded(
               flex: 2,
@@ -100,9 +100,9 @@ class ApartmentsScreen extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    
+
                     const SizedBox(height: 5),
-                    
+
                     // Location
                     Row(
                       children: [
@@ -125,9 +125,9 @@ class ApartmentsScreen extends StatelessWidget {
                         ),
                       ],
                     ),
-                    
+
                     const SizedBox(height: 10),
-                    
+
                     // Price
                     Align(
                       alignment: Alignment.bottomRight,
@@ -153,7 +153,7 @@ class ApartmentsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // ✅ FIXED: Use correct controller name
-    final controller = Get.find<RenterHomeController>();
+    final controller = Get.put(RenterHomeController());
 
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
@@ -161,9 +161,7 @@ class ApartmentsScreen extends StatelessWidget {
         // Loading state
         if (controller.isLoading.value) {
           return const Center(
-            child: CircularProgressIndicator(
-              color: AppColors.primary,
-            ),
+            child: CircularProgressIndicator(color: AppColors.primary),
           );
         }
 
@@ -195,12 +193,9 @@ class ApartmentsScreen extends StatelessWidget {
             itemCount: controller.apartments.length,
             itemBuilder: (context, index) {
               final apartment = controller.apartments[index];
-              
+
               // ✅ FIXED: Pass function properly
-              return _buildApartmentGridItem(
-                apartment,
-                controller.goToDetails,
-              );
+              return _buildApartmentGridItem(apartment, controller.goToDetails);
             },
           ),
         );

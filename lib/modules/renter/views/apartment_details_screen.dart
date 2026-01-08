@@ -5,6 +5,7 @@ import 'package:hommie/data/models/user/user_permission_controller.dart';
 import 'package:hommie/modules/renter/controllers/apartment_details_controller.dart';
 import 'package:hommie/data/services/apartments_service.dart';
 import 'package:hommie/app/utils/app_colors.dart';
+import 'package:hommie/modules/shared/controllers/booking_dialog_controller.dart';
 import 'package:hommie/widgets/rating_stars_widget.dart';
 
 class ApartmentDetailsScreen extends StatelessWidget {
@@ -218,8 +219,9 @@ class ApartmentDetailsScreen extends StatelessWidget {
                                   
                                   if (permissions.checkPermission('book', showMessage: true)) {
                                     print('✅ Permission granted - Proceeding to booking');
-                                    controller.bookApartment();
+                                   showBookingDialog(apartmentId: apartment.id);
                                   } else {
+                                    
                                     print('❌ Booking denied - User not approved');
                                   }
                                   print('═══════════════════════════════════════════════════════════');

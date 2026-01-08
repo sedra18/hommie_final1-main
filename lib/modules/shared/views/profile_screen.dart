@@ -15,7 +15,7 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final LogoutController logoutController = Get.put(LogoutController());
-    final approvalService = Get.find<ApprovalStatusService>();
+    final approvalService = Get.put(ApprovalStatusService());
 
     return Scaffold(
       appBar: AppBar(
@@ -29,7 +29,10 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildProfileContent(LogoutController logoutController, ApprovalStatusService approvalService) {
+  Widget _buildProfileContent(
+    LogoutController logoutController,
+    ApprovalStatusService approvalService,
+  ) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -167,7 +170,7 @@ class ProfileScreen extends StatelessWidget {
   // Shows different badge based on approval status
   // ✅ FIXED: Added .value to access RxBool
   // ═══════════════════════════════════════════════════════════
-  
+
   Widget _buildApprovalBadge(ApprovalStatusService approvalService) {
     if (approvalService.isApproved.value) {
       // Approved - Green badge
@@ -259,10 +262,7 @@ class ProfileScreen extends StatelessWidget {
             SizedBox(width: 8),
             Text(
               'Status unknown',
-              style: TextStyle(
-                color: Colors.grey,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
             ),
           ],
         ),

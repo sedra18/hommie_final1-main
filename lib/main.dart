@@ -12,10 +12,10 @@ import 'package:hommie/modules/shared/views/welcomescreen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await GetStorage.init();
-  
+
   // Initialize AuthService first
   Get.put(AuthService());
-  
+  GetStorage.init();
   runApp(const MyApp());
 }
 
@@ -26,10 +26,10 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     // Get AuthService instance
     final authService = Get.put(AuthService());
-    
+
     // Determine initial route based on login state
     String initialRoute = '/';
-    
+
     if (authService.checkIsLoggedIn()) {
       final role = authService.getUserRole();
       if (role == 'renter') {
@@ -38,7 +38,7 @@ class MyApp extends StatelessWidget {
         initialRoute = '/owner_home';
       }
     }
-    
+
     print('🚀 App starting with route: $initialRoute');
 
     return GetMaterialApp(

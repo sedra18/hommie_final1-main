@@ -2,12 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:hommie/data/services/apartments_service.dart';
 
-// ═══════════════════════════════════════════════════════════
-// APARTMENT MODEL - FIXED
-// ✅ Proper type casting for image lists
-// ✅ Uses ApartmentsService.getCleanImageUrl()
-// ✅ No type errors
-// ═══════════════════════════════════════════════════════════
+
 
 class ApartmentModel {
   final int id;

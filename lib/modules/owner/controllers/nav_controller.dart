@@ -1,13 +1,17 @@
-
-
 import 'package:get/get.dart';
 
 class NavController extends GetxController {
-  final currentIndex = 0.obs;
+  // Observable index to track the current tab
+  var currentIndex = 0.obs;
 
+  // Method to update the index safely
   void changeTab(int index) {
+    print('🔄 Navigating to Tab Index: $index');
     currentIndex.value = index;
-    // Force update to ensure UI rebuilds
-    update();
+  }
+
+  // Optional: Method to jump back to Home from anywhere
+  void goToHome() {
+    currentIndex.value = 0;
   }
 }

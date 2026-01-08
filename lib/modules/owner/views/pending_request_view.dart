@@ -11,6 +11,7 @@ import 'package:hommie/app/utils/app_colors.dart';
 // ✅ Tab 1: Pending Requests (with approve/reject actions)
 // ✅ Tab 2: Rejected Bookings (read-only)
 // ✅ Tab 3: Approved Bookings (read-only)
+// ✅ ONLY shows bookings for THIS owner's apartments
 // ═══════════════════════════════════════════════════════════
 
 class OwnerDashboardScreen extends StatefulWidget {
@@ -23,7 +24,7 @@ class OwnerDashboardScreen extends StatefulWidget {
 class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final BookingService _bookingService = Get.find<BookingService>();
+  final BookingService _bookingService = Get.put(BookingService());
 
   List<BookingRequestModel> _pendingRequests = [];
   List<BookingRequestModel> _rejectedRequests = [];
@@ -51,19 +52,32 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
 
   // ═══════════════════════════════════════════════════════════
   // LOAD ALL REQUESTS
+  // ✅ Fetches ONLY bookings for this owner's apartments
   // ✅ Separates by status
   // ═══════════════════════════════════════════════════════════
 
   Future<void> _loadAllRequests() async {
-    print('📥 Loading all booking requests...');
+    print('📥 Loading owner booking requests...');
     setState(() => _isLoading = true);
 
     try {
-      // GET /api/owner/bookings (all statuses)
+      // ✅ GET /api/bookings/ownerBookings
+      // This endpoint returns ONLY bookings for this owner's apartments
       final allRequests = await _bookingService.getOwnerBookings();
 
+      print('📦 Raw requests received: ${allRequests.length}');
+      
+      // Log each request for debugging
+      for (var request in allRequests) {
+        print('   - Booking #${request.id}: ${request.status} for ${request.apartmentTitle}');
+      }
+
+      // ✅ Separate by status (case-insensitive)
       _pendingRequests = allRequests
-          .where((b) => b.status?.toLowerCase() == 'pending')
+          .where((b) => 
+            b.status?.toLowerCase() == 'pending' ||
+            b.status?.toLowerCase() == 'pending_owner_approval'
+          )
           .toList();
 
       _rejectedRequests = allRequests
@@ -75,15 +89,17 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
           .toList();
 
       print('');
-      print('📊 REQUESTS LOADED:');
+      print('📊 REQUESTS LOADED BY STATUS:');
       print('   Pending: ${_pendingRequests.length}');
       print('   Rejected: ${_rejectedRequests.length}');
       print('   Approved: ${_approvedRequests.length}');
+      print('   Total: ${allRequests.length}');
       print('═══════════════════════════════════════════════════════════');
 
       setState(() => _isLoading = false);
-    } catch (e) {
+    } catch (e, stackTrace) {
       print('❌ Error loading requests: $e');
+      print('Stack trace: ${stackTrace.toString().split('\n').take(5).join('\n')}');
       print('═══════════════════════════════════════════════════════════');
 
       setState(() => _isLoading = false);
@@ -94,6 +110,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red,
         colorText: Colors.white,
+        duration: const Duration(seconds: 3),
       );
     }
   }
@@ -107,7 +124,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
     print('═══════════════════════════════════════════════════════════');
     print('✅ APPROVING REQUEST');
     print('   Booking ID: ${request.id}');
-    print('   User: ${request.userName}');
+    print('   Renter: ${request.userName ?? 'N/A'}');
+    print('   Apartment: ${request.apartmentTitle ?? 'N/A'}');
     print('──────────────────────────────────────────────────────────');
 
     final confirmed = await Get.dialog<bool>(
@@ -120,11 +138,43 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
             Text('قبول الحجز'),
           ],
         ),
-        content: Text(
-          'قبول طلب الحجز من ${request.userName ?? 'المستأجر'}؟\n\n'
-          'التواريخ: ${request.startDate} - ${request.endDate}\n'
-          'الدفع: ${request.paymentMethod?.toUpperCase()}',
-          style: const TextStyle(fontSize: 15),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'قبول طلب الحجز من ${request.userName ?? 'المستأجر'}؟',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.home, size: 18),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          request.apartmentTitle ?? 'Apartment',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text('📅 ${request.startDate} - ${request.endDate}'),
+                  Text('💰 ${request.paymentMethod?.toUpperCase() ?? 'N/A'}'),
+                ],
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -146,6 +196,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
     );
 
     if (confirmed == true && request.id != null) {
+      // Show loading
       Get.dialog(
         const Center(child: CircularProgressIndicator(color: Colors.green)),
         barrierDismissible: false,
@@ -169,6 +220,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
           duration: const Duration(seconds: 3),
         );
 
+        // Reload requests
         await _loadAllRequests();
       } else {
         print('❌ Failed to approve booking');
@@ -194,7 +246,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
     print('═══════════════════════════════════════════════════════════');
     print('❌ REJECTING REQUEST');
     print('   Booking ID: ${request.id}');
-    print('   User: ${request.userName}');
+    print('   Renter: ${request.userName ?? 'N/A'}');
+    print('   Apartment: ${request.apartmentTitle ?? 'N/A'}');
     print('──────────────────────────────────────────────────────────');
 
     final confirmed = await Get.dialog<bool>(
@@ -207,10 +260,43 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
             Text('رفض الحجز'),
           ],
         ),
-        content: Text(
-          'رفض طلب الحجز من ${request.userName ?? 'المستأجر'}؟\n\n'
-          'لا يمكن التراجع عن هذا الإجراء.',
-          style: const TextStyle(fontSize: 15),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'رفض طلب الحجز من ${request.userName ?? 'المستأجر'}؟',
+              style: const TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    request.apartmentTitle ?? 'Apartment',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  Text('${request.startDate} - ${request.endDate}'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'لا يمكن التراجع عن هذا الإجراء.',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.red,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -232,6 +318,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
     );
 
     if (confirmed == true && request.id != null) {
+      // Show loading
       Get.dialog(
         const Center(child: CircularProgressIndicator(color: Colors.red)),
         barrierDismissible: false,
@@ -255,6 +342,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
           duration: const Duration(seconds: 3),
         );
 
+        // Reload requests
         await _loadAllRequests();
       } else {
         print('❌ Failed to reject booking');
@@ -395,6 +483,9 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
         separatorBuilder: (_, __) => const SizedBox(height: 16),
         itemBuilder: (context, index) {
           final request = _pendingRequests[index];
+          
+          print('🎴 Building pending card for booking #${request.id}');
+          
           return BookingRequestCard(
             request: request,
             onApprove: () => _approveRequest(request),
@@ -434,6 +525,9 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
         separatorBuilder: (_, __) => const SizedBox(height: 16),
         itemBuilder: (context, index) {
           final request = requests[index];
+          
+          print('🎴 Building ${status} card for booking #${request.id}');
+          
           return OwnerBookingCard(
             booking: request,
             status: status,
@@ -458,11 +552,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              size: 80,
-              color: Colors.grey.shade300,
-            ),
+            Icon(icon, size: 80, color: Colors.grey.shade300),
             const SizedBox(height: 20),
             Text(
               title,
@@ -491,7 +581,10 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.primary,
                 side: BorderSide(color: AppColors.primary),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),

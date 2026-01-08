@@ -41,11 +41,24 @@ class RenterHomeController extends GetxController {
   // Automatically refresh apartments when approval status changes
   // ═══════════════════════════════════════════════════════════
   
-  void _setupApprovalListener() {
-    ever(_approvalService.isApproved, (isApproved) {
-      print('🔔 Approval status changed to: $isApproved');
-      if (isApproved) {
-        print('✅ User approved! Refreshing apartments...');
+void _setupApprovalListener() {
+    // 1. Check immediately if they are already approved
+    if (_approvalService.isApproved.value) {
+      print('✅ User already approved on init. Fetching...');
+      fetchApartments();
+    }
+
+    // 2. Use 'ever' to catch the moment the backend approves them
+    ever(_approvalService.isApproved, (bool approved) {
+      print('🔔 Approval status changed to: $approved');
+      if (approved) {
+        fetchApartments(); // This will now fire because we started at 'false'
+      }
+    });
+
+    // 3. Fallback: If isPending changes, we might want to refresh too
+    ever(_approvalService.isPending, (bool pending) {
+      if (!pending && _approvalService.isApproved.value) {
         fetchApartments();
       }
     });

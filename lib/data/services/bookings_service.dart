@@ -1,9 +1,3 @@
-// ═══════════════════════════════════════════════════════════
-// BOOKING SERVICE - COMPLETE VERSION
-// ✅ All endpoints for renter and owner
-// ✅ Uses getAccessToken()
-// ✅ Proper error handling
-// ═══════════════════════════════════════════════════════════
 
 import 'dart:convert';
 import 'package:get/get.dart';
@@ -14,14 +8,11 @@ import 'package:hommie/data/services/token_storage_service.dart';
 
 class BookingService extends GetxService {
   static String baseUrl = '${BaseUrl.pubBaseUrl}/api';
-  
-  final TokenStorageService _tokenService = Get.find<TokenStorageService>();
 
-  // ═══════════════════════════════════════════════════════════
-  // CREATE BOOKING REQUEST
-  // POST /api/bookings/create
-  // ═══════════════════════════════════════════════════════════
-  
+  final TokenStorageService _tokenService = Get.put(TokenStorageService());
+
+
+
   Future<Map<String, dynamic>> createBooking({
     required int apartmentId,
     required String startDate,
@@ -30,7 +21,7 @@ class BookingService extends GetxService {
   }) async {
     try {
       final token = await _tokenService.getAccessToken();
-      
+
       if (token == null) {
         throw Exception('No authentication token found');
       }
@@ -45,7 +36,7 @@ class BookingService extends GetxService {
       print('──────────────────────────────────────────────────────────');
 
       final response = await http.post(
-        Uri.parse('$baseUrl/bookings/create'),
+        Uri.parse('$baseUrl/bookings'),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -83,19 +74,11 @@ class BookingService extends GetxService {
     } catch (e) {
       print('❌ Error creating booking: $e');
       print('═══════════════════════════════════════════════════════════');
-      return {
-        'success': false,
-        'message': 'Error: $e',
-      };
+      return {'success': false, 'message': 'Error: $e'};
     }
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // GET MY BOOKINGS (FOR RENTER)
-  // GET /api/bookings?status={status}
-  // ✅ ADDED METHOD
-  // ═══════════════════════════════════════════════════════════
-  
+
   Future<List<BookingRequestModel>> getMyBookings({String? status}) async {
     try {
       final token = await _tokenService.getAccessToken();
@@ -110,7 +93,6 @@ class BookingService extends GetxService {
       if (status != null) print('   Status Filter: $status');
       print('──────────────────────────────────────────────────────────');
 
-      // Build URL with optional status filter
       String url = '$baseUrl/bookings';
       if (status != null) {
         url += '?status=$status';
@@ -128,50 +110,36 @@ class BookingService extends GetxService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        
-        // Handle different possible response structures
-        List<dynamic> bookingsData = [];
-        if (data is Map) {
-          bookingsData = data['data'] as List? ?? 
-                        data['bookings'] as List? ?? 
-                        [];
-        } else if (data is List) {
-          bookingsData = data;
-        }
+        final bookingsData = _extractBookingsArray(data);
         
         print('Total bookings received: ${bookingsData.length}');
-        
-        final bookings = bookingsData
-            .map((json) => BookingRequestModel.fromJson(json))
-            .toList();
-        
+
+        final bookings = bookingsData.map((json) {
+          return BookingRequestModel.fromJson(_mapStatus(json));
+        }).toList();
+
         print('✅ Found ${bookings.length} bookings');
+        _printStatusBreakdown(bookings);
         print('═══════════════════════════════════════════════════════════');
-        
+
         return bookings;
       } else {
         print('❌ Failed to fetch bookings: ${response.statusCode}');
-        print('Response: ${response.body}');
         print('═══════════════════════════════════════════════════════════');
         return [];
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       print('❌ Error fetching bookings: $e');
+      print('Stack: ${stackTrace.toString().split('\n').take(3).join('\n')}');
       print('═══════════════════════════════════════════════════════════');
       return [];
     }
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // GET OWNER BOOKINGS (FOR OWNER)
-  // GET /api/bookings/ownerBookings
-  // ✅ ADDED METHOD
-  // ═══════════════════════════════════════════════════════════
-  
   Future<List<BookingRequestModel>> getOwnerBookings() async {
     try {
       final token = await _tokenService.getAccessToken();
-      
+
       if (token == null) {
         throw Exception('No authentication token found');
       }
@@ -193,55 +161,41 @@ class BookingService extends GetxService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        
-        // Handle different possible response structures
-        List<dynamic> bookingsData = [];
-        if (data is Map) {
-          bookingsData = data['data'] as List? ?? 
-                        data['bookings'] as List? ?? 
-                        [];
-        } else if (data is List) {
-          bookingsData = data;
-        }
+        final bookingsData = _extractBookingsArray(data);
         
         print('Total bookings received: ${bookingsData.length}');
-        
-        final bookings = bookingsData
-            .map((json) => BookingRequestModel.fromJson(json))
-            .toList();
-        
+
+        final bookings = bookingsData.map((json) {
+          return BookingRequestModel.fromJson(_mapStatus(json));
+        }).toList();
+
         print('✅ Found ${bookings.length} owner bookings');
+        _printStatusBreakdown(bookings);
         print('═══════════════════════════════════════════════════════════');
-        
+
         return bookings;
       } else {
         print('❌ Failed to fetch owner bookings: ${response.statusCode}');
-        print('Response: ${response.body}');
         print('═══════════════════════════════════════════════════════════');
         return [];
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       print('❌ Error fetching owner bookings: $e');
+      print('Stack: ${stackTrace.toString().split('\n').take(3).join('\n')}');
       print('═══════════════════════════════════════════════════════════');
       return [];
     }
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // GET PENDING BOOKINGS (FOR OWNER - LEGACY METHOD)
-  // Uses getOwnerBookings and filters by pending
-  // ═══════════════════════════════════════════════════════════
-  
+
+
   Future<List<BookingRequestModel>> getPendingBookings() async {
     try {
       final allBookings = await getOwnerBookings();
-      
       final pendingBookings = allBookings
           .where((booking) => booking.status?.toLowerCase() == 'pending')
           .toList();
-      
       print('✅ Filtered ${pendingBookings.length} pending bookings');
-      
       return pendingBookings;
     } catch (e) {
       print('❌ Error getting pending bookings: $e');
@@ -249,15 +203,11 @@ class BookingService extends GetxService {
     }
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // APPROVE BOOKING
-  // POST /api/bookings/{id}/approve
-  // ═══════════════════════════════════════════════════════════
-  
+
   Future<bool> approveBooking(int bookingId) async {
     try {
       final token = await _tokenService.getAccessToken();
-      
+
       if (token == null) {
         throw Exception('No authentication token found');
       }
@@ -277,17 +227,15 @@ class BookingService extends GetxService {
       );
 
       print('Response Status: ${response.statusCode}');
-      print('Response Body: ${response.body}');
-
       final success = response.statusCode == 200;
-      
+
       if (success) {
         print('✅ Booking approved successfully');
       } else {
         print('❌ Failed to approve booking');
       }
       print('═══════════════════════════════════════════════════════════');
-      
+
       return success;
     } catch (e) {
       print('❌ Error approving booking: $e');
@@ -296,15 +244,12 @@ class BookingService extends GetxService {
     }
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // REJECT BOOKING
-  // POST /api/bookings/{id}/reject
-  // ═══════════════════════════════════════════════════════════
-  
+
+
   Future<bool> rejectBooking(int bookingId) async {
     try {
       final token = await _tokenService.getAccessToken();
-      
+
       if (token == null) {
         throw Exception('No authentication token found');
       }
@@ -324,17 +269,15 @@ class BookingService extends GetxService {
       );
 
       print('Response Status: ${response.statusCode}');
-      print('Response Body: ${response.body}');
-
       final success = response.statusCode == 200;
-      
+
       if (success) {
         print('✅ Booking rejected successfully');
       } else {
         print('❌ Failed to reject booking');
       }
       print('═══════════════════════════════════════════════════════════');
-      
+
       return success;
     } catch (e) {
       print('❌ Error rejecting booking: $e');
@@ -343,15 +286,11 @@ class BookingService extends GetxService {
     }
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // CANCEL BOOKING (FOR RENTER)
-  // POST /api/bookings/{id}/cancel
-  // ═══════════════════════════════════════════════════════════
-  
+
   Future<bool> cancelBooking(int bookingId) async {
     try {
       final token = await _tokenService.getAccessToken();
-      
+
       if (token == null) {
         throw Exception('No authentication token found');
       }
@@ -371,17 +310,15 @@ class BookingService extends GetxService {
       );
 
       print('Response Status: ${response.statusCode}');
-      print('Response Body: ${response.body}');
-
       final success = response.statusCode == 200;
-      
+
       if (success) {
         print('✅ Booking cancelled successfully');
       } else {
         print('❌ Failed to cancel booking');
       }
       print('═══════════════════════════════════════════════════════════');
-      
+
       return success;
     } catch (e) {
       print('❌ Error cancelling booking: $e');
@@ -390,10 +327,105 @@ class BookingService extends GetxService {
     }
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // LEGACY METHODS (For backward compatibility)
-  // ═══════════════════════════════════════════════════════════
-  
+
+
+  /// Extract bookings array from various response structures
+  List<dynamic> _extractBookingsArray(dynamic data) {
+    if (data is Map<String, dynamic>) {
+      // Paginated: { "data": { "data": [...] } }
+      if (data.containsKey('data') && data['data'] is Map<String, dynamic>) {
+        final paginatedData = data['data'] as Map<String, dynamic>;
+        if (paginatedData.containsKey('data') && paginatedData['data'] is List) {
+          print('✅ Found PAGINATED structure (data.data)');
+          print('   Current Page: ${paginatedData['current_page']}');
+          print('   Total: ${paginatedData['total']}');
+          return paginatedData['data'] as List;
+        }
+      }
+      // Flat: { "data": [...] }
+      else if (data.containsKey('data') && data['data'] is List) {
+        print('✅ Found FLAT structure (data[])');
+        return data['data'] as List;
+      }
+      // Bookings: { "bookings": [...] }
+      else if (data.containsKey('bookings') && data['bookings'] is List) {
+        print('✅ Found BOOKINGS structure (bookings[])');
+        return data['bookings'] as List;
+      }
+    }
+    // Array at root: [...]
+    else if (data is List) {
+      print('✅ Response is array at root');
+      return data;
+    }
+    
+    return [];
+  }
+
+  /// Map backend status to frontend status
+  Map<String, dynamic> _mapStatus(Map<String, dynamic> json) {
+    if (json.containsKey('status')) {
+      final backendStatus = json['status'] as String?;
+      final mappedStatus = _mapBackendStatus(backendStatus);
+      
+      if (backendStatus != mappedStatus) {
+        print('📦 Booking #${json['id']}: "$backendStatus" → "$mappedStatus"');
+        json = Map<String, dynamic>.from(json);
+        json['status'] = mappedStatus;
+      }
+    }
+    return json;
+  }
+
+  /// Map backend status names to frontend status names
+  String? _mapBackendStatus(String? backendStatus) {
+    if (backendStatus == null) return null;
+    
+    final status = backendStatus.toLowerCase().trim();
+    
+    switch (status) {
+      case 'pending':
+      case 'pending_owner_approval':
+      case 'pending_approval':
+      case 'awaiting_approval':
+        return 'pending';
+        
+      case 'approved':
+      case 'confirmed':
+      case 'accepted':
+        return 'approved';
+        
+      case 'rejected':
+      case 'declined':
+      case 'cancelled':
+      case 'canceled':
+        return 'rejected';
+        
+      case 'completed':
+      case 'finished':
+      case 'done':
+        return 'completed';
+        
+      default:
+        return backendStatus;
+    }
+  }
+
+  /// Print status breakdown for debugging
+  void _printStatusBreakdown(List<BookingRequestModel> bookings) {
+    print('   Status breakdown:');
+    final statusCounts = <String, int>{};
+    for (var booking in bookings) {
+      final status = booking.status ?? 'unknown';
+      statusCounts[status] = (statusCounts[status] ?? 0) + 1;
+    }
+    statusCounts.forEach((status, count) {
+      print('     - $status: $count');
+    });
+  }
+
+
+
   /// Alias for getMyBookings (for renter)
   Future<List<BookingRequestModel>> getUserBookings() async {
     return getMyBookings();

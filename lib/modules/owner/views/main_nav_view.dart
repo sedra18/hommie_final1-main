@@ -9,62 +9,52 @@ import 'package:hommie/modules/shared/views/chat_screen.dart';
 import 'package:hommie/modules/shared/views/favorites_screen.dart';
 import 'package:hommie/modules/shared/views/profile_screen.dart';
 
-// ═══════════════════════════════════════════════════════════
-// ALTERNATIVE FIX - Using StatefulWidget
-// More reliable with ConvexAppBar's internal state management
-// ═══════════════════════════════════════════════════════════
-
-class MainNavView extends StatefulWidget {
+class MainNavView extends StatelessWidget {
   const MainNavView({super.key});
 
   @override
-  State<MainNavView> createState() => _MainNavViewState();
-}
-
-class _MainNavViewState extends State<MainNavView> {
-  final nav = Get.put(NavController());
-
-  final pages = [
-    OwnerHomeScreen(),
-    ChatScreen(),
-    FavoritesScreen(),
-    PostAdScreen(),
-    ProfileScreen(),
-  ];
-
-  @override
   Widget build(BuildContext context) {
-    return Obx(() {
-      return Scaffold(
-        body: pages[nav.currentIndex.value],
-        bottomNavigationBar: ConvexAppBar(
-          style: TabStyle.fixedCircle,
-          backgroundColor: AppColors.primary,
-          color: AppColors.backgroundLight.withOpacity(0.6),
-          activeColor: AppColors.backgroundLight,
-          elevation: 8,
-          curveSize: 90,
-          top: -28,
-          height: 60,
-          
-          // Current index synced with GetX
-          initialActiveIndex: nav.currentIndex.value,
-          
-          onTap: (index) {
-            setState(() {
-              nav.changeTab(index);
-            });
-          },
-          
-          items: const [
-            TabItem(icon: Icons.home_outlined, title: 'Home'),
-            TabItem(icon: Icons.message_outlined, title: 'Messages'),
-            TabItem(icon: Icons.favorite_border, title: 'Favorite'),
-            TabItem(icon: Icons.post_add_outlined, title: 'Post Ad'),
-            TabItem(icon: Icons.person_outline, title: 'Profile'),
-          ],
-        ),
-      );
-    });
+    // Initialize the new separate controller
+    final NavController nav = Get.put(NavController());
+
+    // List of screens corresponding to the bottom bar items
+    final List<Widget> pages = [
+      const OwnerHomeScreen(),
+      const ChatScreen(),
+      const FavoritesScreen(),
+      const PostAdScreen(),
+      const ProfileScreen(),
+    ];
+
+    return Scaffold(
+      // Obx listens to nav.currentIndex and rebuilds only the body/bar
+      body: Obx(() => IndexedStack(
+            index: nav.currentIndex.value,
+            children: pages,
+          )),
+      bottomNavigationBar: Obx(() => ConvexAppBar(
+            style: TabStyle.fixedCircle,
+            backgroundColor: AppColors.primary,
+            color: AppColors.backgroundLight.withOpacity(0.6),
+            activeColor: AppColors.backgroundLight,
+            elevation: 8,
+            curveSize: 90,
+            top: -28,
+            height: 60,
+            
+            // Sync current index with Controller
+            initialActiveIndex: nav.currentIndex.value,
+            
+            onTap: (index) => nav.changeTab(index),
+            
+            items: const [
+              TabItem(icon: Icons.home_outlined, title: 'Home'),
+              TabItem(icon: Icons.message_outlined, title: 'Messages'),
+              TabItem(icon: Icons.favorite_border, title: 'Favorite'),
+              TabItem(icon: Icons.post_add_outlined, title: 'Post Ad'),
+              TabItem(icon: Icons.person_outline, title: 'Profile'),
+            ],
+          )),
+    );
   }
 }
