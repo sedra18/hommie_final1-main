@@ -295,15 +295,15 @@ class MyBookingCard extends StatelessWidget {
   Color _getStatusColor() {
     switch (status.toLowerCase()) {
       case 'pending':
-        return Colors.orange;
+        return AppColors.primary;
       case 'approved':
-        return Colors.green;
+        return  AppColors.primary;
       case 'rejected':
-        return Colors.red;
+        return  AppColors.primary;
       case 'completed':
-        return Colors.blue;
+        return  AppColors.primary;
       default:
-        return Colors.grey;
+        return  AppColors.primary;
     }
   }
 

@@ -64,7 +64,9 @@ class UnifiedApartmentCard extends StatelessWidget {
             // ═══════════════════════════════════════════════════
             Stack(
               children: [
-                _buildImageSection(),
+                _buildImageSection(
+                  
+                ),
 
                 // "My Apartment" Badge (top-left)
                 if (isMyApartment)

@@ -82,6 +82,8 @@ class _RenterHomeScreenState extends State<RenterHomeScreen> {
               CircularProgressIndicator(),
               SizedBox(height: 16),
               Text('Loading apartments...'),
+              
+
             ],
           ),
         );
