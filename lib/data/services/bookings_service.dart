@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'package:get/get.dart';
-import 'package:hommie/data/services/token_storage_service.dart';
-import 'package:hommie/helpers/base_url.dart';
 import 'package:hommie/data/models/bookings/bookings_request_model.dart';
+import 'package:hommie/helpers/base_url.dart';
+import 'package:hommie/data/services/token_storage_service.dart';
 import 'package:http/http.dart' as http;
 
 class BookingService extends GetxService {
@@ -316,6 +316,137 @@ class BookingService extends GetxService {
       print('❌ Error cancelling booking: $e');
       print('═══════════════════════════════════════════════════════════');
       return false;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // GET PENDING REVIEWS
+  // ✅ API: GET /api/bookings/pending-review
+  // ✅ Returns bookings that are completed and haven't been reviewed yet
+  // ═══════════════════════════════════════════════════════════
+
+  Future<List<BookingRequestModel>> getPendingReviews() async {
+    try {
+      final token = await _tokenService.getAccessToken();
+
+      if (token == null) {
+        throw Exception('No authentication token found');
+      }
+
+      final url = '$baseUrl/bookings/pending-review';
+
+      print('');
+      print('═══════════════════════════════════════════════════════════');
+      print('📋 FETCHING PENDING REVIEWS');
+      print('   Endpoint: $url');
+      print('──────────────────────────────────────────────────────────');
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      print('Response Status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final decodedBody = json.decode(response.body);
+        final bookingsArray = _extractBookingsArray(decodedBody);
+
+        print('✅ Found ${bookingsArray.length} bookings pending review');
+
+        final bookings = bookingsArray
+            .map((json) => BookingRequestModel.fromJson(json as Map<String, dynamic>))
+            .toList();
+
+        print('═══════════════════════════════════════════════════════════');
+
+        return bookings;
+      } else {
+        print('❌ Failed to fetch pending reviews: ${response.statusCode}');
+        print('Response: ${response.body}');
+        print('═══════════════════════════════════════════════════════════');
+        return [];
+      }
+    } catch (e, stackTrace) {
+      print('❌ Error fetching pending reviews: $e');
+      print('Stack trace: ${stackTrace.toString().split('\n').take(3).join('\n')}');
+      print('═══════════════════════════════════════════════════════════');
+      return [];
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // ADD REVIEW
+  // ✅ API: POST /api/bookings/{id}/review
+  // ✅ Adds a review/rating for a completed booking
+  // ═══════════════════════════════════════════════════════════
+
+  Future<Map<String, dynamic>> addReview({
+    required int bookingId,
+    required int rating,
+    String? comment,
+  }) async {
+    try {
+      final token = await _tokenService.getAccessToken();
+
+      if (token == null) {
+        return {'success': false, 'error': 'No authentication token found'};
+      }
+
+      print('');
+      print('═══════════════════════════════════════════════════════════');
+      print('⭐ ADDING REVIEW');
+      print('   Endpoint: $baseUrl/bookings/$bookingId/review');
+      print('   Booking ID: $bookingId');
+      print('   Rating: $rating');
+      print('   Comment: ${comment ?? 'None'}');
+      print('──────────────────────────────────────────────────────────');
+
+      final body = {
+        'rating': rating,
+        if (comment != null && comment.isNotEmpty) 'comment': comment,
+      };
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/bookings/$bookingId/review'),
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: json.encode(body),
+      );
+
+      print('Response Status: ${response.statusCode}');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        print('✅ Review added successfully');
+        print('═══════════════════════════════════════════════════════════');
+
+        return {'success': true, 'data': json.decode(response.body)};
+      } else {
+        print('❌ Failed to add review');
+        print('Response: ${response.body}');
+        print('═══════════════════════════════════════════════════════════');
+
+        try {
+          final errorData = json.decode(response.body);
+          return {
+            'success': false,
+            'error': errorData['message'] ?? 'Failed to add review',
+          };
+        } catch (_) {
+          return {'success': false, 'error': 'Failed to add review'};
+        }
+      }
+    } catch (e) {
+      print('❌ Error adding review: $e');
+      print('═══════════════════════════════════════════════════════════');
+
+      return {'success': false, 'error': 'An error occurred: ${e.toString()}'};
     }
   }
 
