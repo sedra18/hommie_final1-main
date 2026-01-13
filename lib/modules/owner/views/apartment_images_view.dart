@@ -6,8 +6,12 @@ import 'package:image_picker/image_picker.dart';
 import '../controllers/post_ad_controller.dart';
 
 // ═══════════════════════════════════════════════════════════
-// APARTMENT IMAGES VIEW - FIXED CONTROLLER ISSUE
-// Doesn't recreate controller (preserves draft)
+// APARTMENT IMAGES VIEW - ULTIMATE WORKING VERSION
+// ✅ Uses correct method: saveDraftImages()
+// ✅ Tracks main image index
+// ✅ Star button UI for main image selection
+// ✅ Auto-navigates back after success
+// ✅ Uses Get.find() not Get.put()
 // ═══════════════════════════════════════════════════════════
 
 class ApartmentImagesView extends StatefulWidget {
@@ -28,7 +32,7 @@ class _ApartmentImagesViewState extends State<ApartmentImagesView> {
   final ImagePicker _picker = ImagePicker();
 
   final List<XFile> _selectedImages = [];
-  XFile? _selectedMainImage;
+  int _mainImageIndex = 0; // ✅ Track which image is main
   bool _isPublishing = false;
 
   @override
@@ -67,48 +71,37 @@ class _ApartmentImagesViewState extends State<ApartmentImagesView> {
     }
   }
 
-  Future<void> _pickMainImage() async {
-    try {
-      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-
-      if (image != null) {
-        setState(() {
-          _selectedMainImage = image;
-        });
-
-        print('📸 Main image selected: ${image.path}');
-      }
-    } catch (e) {
-      print('❌ Error picking main image: $e');
-
-      if (mounted) {
-        Get.snackbar(
-          'خطأ',
-          'فشل اختيار الصورة الرئيسية',
-          backgroundColor: Colors.red,
-          colorText: Colors.white,
-        );
-      }
-    }
-  }
-
-  void _removeImage(XFile image) {
+  void _removeImage(int index) {
     setState(() {
-      _selectedImages.remove(image);
+      _selectedImages.removeAt(index);
+      
+      // Adjust main image index if needed
+      if (_mainImageIndex >= _selectedImages.length && _selectedImages.isNotEmpty) {
+        _mainImageIndex = _selectedImages.length - 1;
+      } else if (_mainImageIndex >= index && _mainImageIndex > 0) {
+        _mainImageIndex--;
+      }
     });
-    print('🗑️ Removed image: ${image.path}');
+    
+    print('🗑️ Removed image at index $index');
     print('   Remaining: ${_selectedImages.length}');
+    print('   Main image index: $_mainImageIndex');
   }
 
-  void _clearMainImage() {
+  void _setMainImage(int index) {
     setState(() {
-      _selectedMainImage = null;
+      _mainImageIndex = index;
     });
-    print('🗑️ Cleared main image');
+    
+    print('⭐ Set main image to index $index');
   }
 
   // ═══════════════════════════════════════════════════════════
   // PUBLISH APARTMENT
+  // ✅ Uses Get.find() to get existing controller
+  // ✅ Uses correct method: saveDraftImages()
+  // ✅ Passes main image index
+  // ✅ Auto-navigates back after success
   // ═══════════════════════════════════════════════════════════
 
   Future<void> _publishApartment() async {
@@ -134,54 +127,49 @@ class _ApartmentImagesViewState extends State<ApartmentImagesView> {
       print('📤 PUBLISHING APARTMENT');
       print('──────────────────────────────────────────────────────────');
 
-      
-      // This gets the existing controller instead of creating a new one
-      final c = Get.put(PostAdController());
+      // ✅ Get existing controller (doesn't create new one)
+      final controller = Get.find<PostAdController>();
 
       // Convert XFile list to path strings
       final imagePaths = _selectedImages.map((file) => file.path).toList();
 
       print('   Selected images: ${imagePaths.length}');
       for (var i = 0; i < imagePaths.length; i++) {
-        print('      ${i + 1}. ${imagePaths[i]}');
-      }
-
-      if (_selectedMainImage != null) {
-        print('   Main image: ${_selectedMainImage!.path}');
+        final isMain = (i == _mainImageIndex);
+        print('      ${i + 1}. ${imagePaths[i]}${isMain ? " ⭐ MAIN" : ""}');
       }
 
       print('──────────────────────────────────────────────────────────');
 
-      // Save images to draft
+      // ✅ CORRECT METHOD: saveDraftImages (with main index)
       print('💾 Saving images to draft...');
-      await c.saveDraftImagesFromFiles(imagePaths);
+      controller.saveDraftImages(imagePaths, mainIndex: _mainImageIndex);
       print('✅ Images saved to draft');
 
       // Publish the draft
       print('📤 Publishing to backend...');
-      await c.publishDraft();
+      await controller.publishDraft();
 
       print('');
       print('✅ PUBLISH COMPLETE');
       print('═══════════════════════════════════════════════════════════');
 
-      // Show success message BEFORE navigation
+      // ✅ Auto-navigate back after success
       if (mounted) {
+        // Show success message briefly
         Get.snackbar(
           'نجح',
           'تم نشر الشقة بنجاح',
           backgroundColor: Colors.green,
           colorText: Colors.white,
           icon: const Icon(Icons.check_circle, color: Colors.white),
-          duration: const Duration(seconds: 2),
+          duration: const Duration(seconds: 1),
         );
-      }
 
-      // Wait a bit for user to see the message
-      await Future.delayed(const Duration(milliseconds: 500));
+        // Wait a bit then navigate
+        await Future.delayed(const Duration(milliseconds: 800));
 
-      // Navigate back
-      if (mounted) {
+        // Navigate back to post ad screen
         Get.back(); // Back to form screen
         Get.back(); // Back to post ad screen
       }
@@ -242,10 +230,10 @@ class _ApartmentImagesViewState extends State<ApartmentImagesView> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'اختر صور الشقة (يجب اختيار صورة واحدة على الأقل)',
+                      'اختر صور الشقة (يجب اختيار صورة واحدة على الأقل)\nانقر على النجمة لتعيين الصورة الرئيسية',
                       style: TextStyle(
                         color: Colors.blue.shade700,
-                        fontSize: 14,
+                        fontSize: 13,
                       ),
                     ),
                   ),
@@ -291,20 +279,71 @@ class _ApartmentImagesViewState extends State<ApartmentImagesView> {
                 itemCount: _selectedImages.length,
                 itemBuilder: (context, index) {
                   final image = _selectedImages[index];
+                  final isMainImage = (index == _mainImageIndex);
+                  
                   return Stack(
                     fit: StackFit.expand,
                     children: [
                       // Image
                       ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        child: Image.file(File(image.path), fit: BoxFit.cover),
+                        child: Image.file(
+                          File(image.path), 
+                          fit: BoxFit.cover,
+                        ),
                       ),
+                      
+                      // Main image indicator
+                      if (isMainImage)
+                        Positioned(
+                          top: 4,
+                          left: 4,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.amber,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              'رئيسي',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      
+                      // Star button to set as main
+                      Positioned(
+                        bottom: 4,
+                        left: 4,
+                        child: GestureDetector(
+                          onTap: () => _setMainImage(index),
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: isMainImage 
+                                  ? Colors.amber 
+                                  : Colors.white.withOpacity(0.9),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              isMainImage ? Icons.star : Icons.star_border,
+                              color: isMainImage ? Colors.white : Colors.grey[700],
+                              size: 18,
+                            ),
+                          ),
+                        ),
+                      ),
+                      
                       // Remove button
                       Positioned(
                         top: 4,
                         right: 4,
                         child: GestureDetector(
-                          onTap: () => _removeImage(image),
+                          onTap: () => _removeImage(index),
                           child: Container(
                             padding: const EdgeInsets.all(4),
                             decoration: const BoxDecoration(
@@ -322,48 +361,6 @@ class _ApartmentImagesViewState extends State<ApartmentImagesView> {
                     ],
                   );
                 },
-              ),
-              const SizedBox(height: 24),
-            ],
-
-            // Main Image Section (Optional)
-            if (_selectedMainImage != null) ...[
-              const Text(
-                'الصورة الرئيسية',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              Stack(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.file(
-                      File(_selectedMainImage!.path),
-                      height: 200,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: GestureDetector(
-                      onTap: _clearMainImage,
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: const BoxDecoration(
-                          color: Colors.red,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.close,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
               ),
               const SizedBox(height: 24),
             ],
@@ -409,8 +406,8 @@ class _ApartmentImagesViewState extends State<ApartmentImagesView> {
                   ? null
                   : () {
                       try {
-                        final controller = Get.put(PostAdController());
-                        controller.cancelDraft();
+                        final controller = Get.find<PostAdController>();
+                        controller.clearDraft();
                       } catch (e) {
                         print('⚠️  Controller not found: $e');
                       }
