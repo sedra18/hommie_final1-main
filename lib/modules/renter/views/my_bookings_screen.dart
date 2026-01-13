@@ -5,13 +5,6 @@ import 'package:hommie/data/services/bookings_service.dart';
 import 'package:hommie/data/models/bookings/bookings_request_model.dart';
 import 'package:hommie/widgets/my_bookings_card.dart';
 
-// ═══════════════════════════════════════════════════════════
-// MY BOOKINGS SCREEN WITH AUTO-COMPLETE
-// ✅ Automatically moves bookings to Completed tab when date ends
-// ✅ Shows rating dialog when booking completes
-// ✅ Works with your actual BookingRequestModel
-// ═══════════════════════════════════════════════════════════
-
 class MyBookingsScreen extends StatefulWidget {
   const MyBookingsScreen({super.key});
 
@@ -24,7 +17,6 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
   late TabController _tabController;
   final BookingService _bookingService = Get.put(BookingService());
 
-  // Bookings by status
   List<BookingRequestModel> _pendingBookings = [];
   List<BookingRequestModel> _approvedBookings = [];
   List<BookingRequestModel> _completedBookings = [];
@@ -51,22 +43,14 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
     super.dispose();
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // LOAD ALL BOOKINGS WITH AUTO-COMPLETE LOGIC
-  // ✅ Moves expired bookings to completed automatically
-  // ═══════════════════════════════════════════════════════════
-
   Future<void> _loadAllBookings() async {
     print('📥 Loading all bookings...');
     setState(() => _isLoading = true);
 
     try {
       final allBookings = await _bookingService.getMyBookings();
-
-      // Process each booking to determine actual status
       final processedBookings = _processBookingsWithExpiry(allBookings);
 
-      // Separate by final status
       _pendingBookings = processedBookings
           .where((b) => 
               b.status?.toLowerCase() == 'pending' ||
@@ -96,8 +80,6 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
       setState(() => _isLoading = false);
     } catch (e) {
       print('❌ Error loading bookings: $e');
-      print('═══════════════════════════════════════════════════════════');
-
       setState(() => _isLoading = false);
 
       Get.snackbar(
@@ -110,43 +92,29 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
     }
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // PROCESS BOOKINGS WITH EXPIRY CHECK
-  // ✅ Core logic: Changes "approved" → "completed" when date passes
-  // ✅ Uses copyWith() method from your model
-  // ═══════════════════════════════════════════════════════════
-
   List<BookingRequestModel> _processBookingsWithExpiry(
       List<BookingRequestModel> bookings) {
     final now = DateTime.now();
     
     return bookings.map((booking) {
-      // Parse end date
-      final endDate = DateTime.tryParse(booking.endDate ?? '');
+      final endDate = DateTime.tryParse(booking.endDate);
       
       if (endDate == null) return booking;
 
-      // Check if booking has ended
       final hasEnded = now.isAfter(endDate);
       
-      // ✅ KEY LOGIC: If booking was "approved" but date has passed → mark as "completed"
       if (hasEnded && booking.status?.toLowerCase() == 'approved') {
         print('✨ Auto-completing booking #${booking.id}: ${booking.apartmentTitle}');
         print('   End date: ${booking.endDate} (Passed)');
         print('   Status changed: approved → completed');
         
-        // ✅ Use copyWith() method from your model
+        // ✅ FIXED: Use copyWith() from your model
         return booking.copyWith(status: 'completed');
       }
       
-      // Otherwise, return booking as-is
       return booking;
     }).toList();
   }
-
-  // ═══════════════════════════════════════════════════════════
-  // CANCEL BOOKING
-  // ═══════════════════════════════════════════════════════════
 
   Future<void> _cancelBooking(BookingRequestModel booking) async {
     final confirmed = await Get.dialog<bool>(
@@ -227,7 +195,6 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
           snackPosition: SnackPosition.BOTTOM,
         );
 
-        // Reload bookings
         _loadAllBookings();
       } else {
         Get.snackbar(
@@ -245,6 +212,100 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
         backgroundColor: Colors.red,
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,
+      );
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // UPDATE BOOKING DATES
+  // ═══════════════════════════════════════════════════════════
+
+  Future<void> _updateBookingDates(BookingRequestModel booking) async {
+    // Parse current dates
+    DateTime? currentStartDate = DateTime.tryParse(booking.startDate);
+    DateTime? currentEndDate = DateTime.tryParse(booking.endDate);
+
+    if (currentStartDate == null || currentEndDate == null) {
+      Get.snackbar(
+        'Error',
+        'Invalid booking dates',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    // Show date range picker
+    final DateTimeRange? picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      initialDateRange: DateTimeRange(
+        start: currentStartDate.isAfter(DateTime.now()) 
+            ? currentStartDate 
+            : DateTime.now(),
+        end: currentEndDate.isAfter(DateTime.now()) 
+            ? currentEndDate 
+            : DateTime.now().add(const Duration(days: 1)),
+      ),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppColors.primary,
+              onPrimary: Colors.white,
+              onSurface: Colors.black,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked == null) return;
+
+    // Show loading
+    Get.dialog(
+      const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      ),
+      barrierDismissible: false,
+    );
+
+    try {
+      final success = await _bookingService.updateBookingDates(
+        bookingId: booking.id!,
+        startDate: picked.start,
+        endDate: picked.end,
+      );
+
+      Get.back(); // Close loading
+
+      if (success) {
+        Get.snackbar(
+          '✓ Success',
+          'Booking dates updated successfully!',
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 3),
+        );
+
+        _loadAllBookings();
+      } else {
+        Get.snackbar(
+          'Error',
+          'Failed to update booking dates',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+      }
+    } catch (e) {
+      Get.back();
+      Get.snackbar(
+        'Error',
+        'An error occurred: $e',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
       );
     }
   }
@@ -330,10 +391,6 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // BUILD BOOKINGS LIST
-  // ═══════════════════════════════════════════════════════════
-
   Widget _buildBookingsList(List<BookingRequestModel> bookings, String status) {
     if (bookings.isEmpty) {
       return _buildEmptyState(status);
@@ -348,17 +405,22 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
         itemBuilder: (context, index) {
           final booking = bookings[index];
 
-          // ✅ Use enhanced card with auto rating
           return Padding(
             padding: const EdgeInsets.only(bottom: 16),
             child: MyBookingCard(
               booking: booking,
               status: status,
-              onCancel: (status == 'pending' || status == 'pending_owner_approval')
+              onCancel: (status == 'pending' || 
+                        status == 'pending_owner_approval' ||
+                        status == 'approved')
                   ? () => _cancelBooking(booking)
                   : null,
+              onUpdate: (status == 'pending' || 
+                        status == 'pending_owner_approval' ||
+                        status == 'approved')
+                  ? () => _updateBookingDates(booking)
+                  : null,
               onReviewSubmitted: () {
-                // Reload bookings after review is submitted
                 _loadAllBookings();
               },
             ),
@@ -367,10 +429,6 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
       ),
     );
   }
-
-  // ═══════════════════════════════════════════════════════════
-  // EMPTY STATE
-  // ═══════════════════════════════════════════════════════════
 
   Widget _buildEmptyState(String status) {
     IconData icon;

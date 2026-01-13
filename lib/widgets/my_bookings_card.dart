@@ -3,15 +3,13 @@ import 'package:get/get.dart';
 import 'package:hommie/app/utils/app_colors.dart';
 import 'package:hommie/data/models/bookings/bookings_request_model.dart';
 import 'package:hommie/data/services/bookings_service.dart';
-import 'package:intl/intl.dart';
 
 // ═══════════════════════════════════════════════════════════
-// ENHANCED MY BOOKING CARD - COMPLETE VERSION
-// ✅ Fixed UI (no overflow)
-// ✅ Auto rating for completed bookings
-// ✅ Update button for pending bookings
-// ✅ Cancel button
-// ✅ All statuses supported including cancelled
+// ENHANCED MY BOOKING CARD - FIXED UI
+// ✅ No overflow errors
+// ✅ Better date formatting
+// ✅ Improved responsive layout
+// ✅ No external dependencies
 // ═══════════════════════════════════════════════════════════
 
 class MyBookingCard extends StatefulWidget {
@@ -83,6 +81,11 @@ class _MyBookingCardState extends State<MyBookingCard> {
 
   @override
   Widget build(BuildContext context) {
+    print('🎴 MyBookingCard building for booking ID: ${widget.booking.id}');
+    print('   Status: ${widget.status}');
+    print('   Apartment: ${widget.booking.apartmentTitle}');
+    print('   Dates: ${widget.booking.startDate} - ${widget.booking.endDate}');
+    
     final endDate = DateTime.tryParse(widget.booking.endDate ?? '');
     final hasEnded = endDate != null && DateTime.now().isAfter(endDate);
     
@@ -103,7 +106,7 @@ class _MyBookingCardState extends State<MyBookingCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
+            // Header with status badge
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
@@ -176,7 +179,7 @@ class _MyBookingCardState extends State<MyBookingCard> {
 
                   const SizedBox(height: 16),
 
-                  // Dates
+                  // Dates - FIXED OVERFLOW
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -288,7 +291,7 @@ class _MyBookingCardState extends State<MyBookingCard> {
                     ],
                   ),
 
-                  // Completed/Ended booking - Rating
+                  // Completed booking actions
                   if (hasEnded && 
                       (widget.status.toLowerCase() == 'approved' || 
                        widget.status.toLowerCase() == 'completed')) ...[
@@ -308,10 +311,11 @@ class _MyBookingCardState extends State<MyBookingCard> {
                             size: 18,
                           ),
                           const SizedBox(width: 8),
-                          const Expanded(
+                          Expanded(
                             child: Text(
                               'Your stay has ended. Rate your experience!',
                               style: TextStyle(
+                                color: Colors.orange.shade900,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -342,46 +346,13 @@ class _MyBookingCardState extends State<MyBookingCard> {
                     ),
                   ],
 
-                  // Cancelled booking notice
-                  if (widget.status.toLowerCase() == 'cancelled') ...[
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.red.shade200),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.info_outline,
-                            color: Colors.red.shade700,
-                            size: 18,
-                          ),
-                          const SizedBox(width: 8),
-                          const Expanded(
-                            child: Text(
-                              'This booking was cancelled.',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-
-                  // Action buttons for pending bookings
-                  if (widget.status.toLowerCase() == 'pending' || 
-                      widget.status.toLowerCase() == 'pending_owner_approval') ...[
+                  // Update and Cancel buttons for approved bookings
+                  if (widget.status.toLowerCase() == 'approved' && !hasEnded) ...[
                     const SizedBox(height: 16),
                     Row(
                       children: [
                         // Update button
-                        if (widget.onUpdate != null && !hasEnded)
+                        if (widget.onUpdate != null)
                           Expanded(
                             child: OutlinedButton.icon(
                               onPressed: widget.onUpdate,
@@ -402,7 +373,7 @@ class _MyBookingCardState extends State<MyBookingCard> {
                           const SizedBox(width: 12),
 
                         // Cancel button
-                        if (widget.onCancel != null && !hasEnded)
+                        if (widget.onCancel != null)
                           Expanded(
                             child: OutlinedButton.icon(
                               onPressed: widget.onCancel,
@@ -422,26 +393,52 @@ class _MyBookingCardState extends State<MyBookingCard> {
                     ),
                   ],
 
-                  // Cancel button for approved bookings
-                  if (widget.status.toLowerCase() == 'approved' && 
-                      !hasEnded && 
-                      widget.onCancel != null) ...[
+                  // Update and Cancel buttons for pending bookings
+                  if ((widget.status.toLowerCase() == 'pending' || 
+                       widget.status.toLowerCase() == 'pending_owner_approval') && 
+                      !hasEnded) ...[
                     const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: widget.onCancel,
-                        icon: const Icon(Icons.cancel, size: 18),
-                        label: const Text('Cancel Booking'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.red,
-                          side: const BorderSide(color: Colors.red),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                    Row(
+                      children: [
+                        // Update button
+                        if (widget.onUpdate != null)
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: widget.onUpdate,
+                              icon: const Icon(Icons.edit_calendar, size: 18),
+                              label: const Text('Update'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.primary,
+                                side: const BorderSide(color: AppColors.primary),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
+                        
+                        if (widget.onUpdate != null && widget.onCancel != null)
+                          const SizedBox(width: 12),
+
+                        // Cancel button
+                        if (widget.onCancel != null)
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: widget.onCancel,
+                              icon: const Icon(Icons.cancel, size: 18),
+                              label: const Text('Cancel'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.red,
+                                side: const BorderSide(color: Colors.red),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ],
                 ],
@@ -486,10 +483,14 @@ class _MyBookingCardState extends State<MyBookingCard> {
     );
   }
 
+  // Format date helper - prevents overflow
   String _formatDate(String dateStr) {
     try {
       final date = DateTime.parse(dateStr);
-      return DateFormat('MMM dd, yyyy').format(date);
+      // Custom format: "Jan 15, 2026"
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return '${months[date.month - 1]} ${date.day}, ${date.year}';
     } catch (e) {
       return dateStr.length > 20 ? '${dateStr.substring(0, 17)}...' : dateStr;
     }
@@ -506,8 +507,6 @@ class _MyBookingCardState extends State<MyBookingCard> {
         return Colors.red;
       case 'completed':
         return Colors.blue;
-      case 'cancelled':
-        return Colors.grey;
       default:
         return Colors.grey;
     }
@@ -524,8 +523,6 @@ class _MyBookingCardState extends State<MyBookingCard> {
         return Icons.cancel;
       case 'completed':
         return Icons.task_alt;
-      case 'cancelled':
-        return Icons.block;
       default:
         return Icons.help_outline;
     }
@@ -542,8 +539,6 @@ class _MyBookingCardState extends State<MyBookingCard> {
         return 'Rejected';
       case 'completed':
         return 'Completed';
-      case 'cancelled':
-        return 'Cancelled';
       default:
         return 'Unknown';
     }
@@ -560,7 +555,10 @@ class _MyBookingCardState extends State<MyBookingCard> {
   }
 }
 
-// Rating Dialog - Same as before
+// ═══════════════════════════════════════════════════════════
+// RATING DIALOG - Same as before
+// ═══════════════════════════════════════════════════════════
+
 class RatingDialog extends StatefulWidget {
   final BookingRequestModel booking;
   final VoidCallback? onReviewSubmitted;
@@ -650,7 +648,7 @@ class _RatingDialogState extends State<RatingDialog> with SingleTickerProviderSt
         throw Exception(result['error'] ?? 'Failed to submit review');
       }
     } catch (e) {
-      Get.back();
+      Get.back(); // Close dialog even on error
       
       Get.snackbar(
         'Error',
@@ -676,6 +674,7 @@ class _RatingDialogState extends State<RatingDialog> with SingleTickerProviderSt
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Header
               Row(
                 children: [
                   Container(
@@ -684,7 +683,7 @@ class _RatingDialogState extends State<RatingDialog> with SingleTickerProviderSt
                       color: AppColors.primary.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.star_rounded,
                       color: AppColors.primary,
                       size: 28,
@@ -706,7 +705,10 @@ class _RatingDialogState extends State<RatingDialog> with SingleTickerProviderSt
                   ),
                 ],
               ),
+
               const SizedBox(height: 24),
+
+              // Apartment info
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -715,7 +717,7 @@ class _RatingDialogState extends State<RatingDialog> with SingleTickerProviderSt
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.apartment, color: AppColors.primary),
+                    Icon(Icons.apartment, color: AppColors.primary),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
@@ -731,7 +733,10 @@ class _RatingDialogState extends State<RatingDialog> with SingleTickerProviderSt
                   ],
                 ),
               ),
+
               const SizedBox(height: 24),
+
+              // Rating stars
               const Text(
                 'How was your experience?',
                 style: TextStyle(
@@ -739,7 +744,9 @@ class _RatingDialogState extends State<RatingDialog> with SingleTickerProviderSt
                   fontWeight: FontWeight.w600,
                 ),
               ),
+
               const SizedBox(height: 16),
+
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(5, (index) {
@@ -767,6 +774,7 @@ class _RatingDialogState extends State<RatingDialog> with SingleTickerProviderSt
                   );
                 }),
               ),
+
               if (_selectedRating > 0) ...[
                 const SizedBox(height: 12),
                 Container(
@@ -777,7 +785,7 @@ class _RatingDialogState extends State<RatingDialog> with SingleTickerProviderSt
                   ),
                   child: Text(
                     _getRatingText(_selectedRating),
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.primary,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -785,7 +793,10 @@ class _RatingDialogState extends State<RatingDialog> with SingleTickerProviderSt
                   ),
                 ),
               ],
+
               const SizedBox(height: 24),
+
+              // Comment field
               TextField(
                 controller: _commentController,
                 maxLines: 3,
@@ -804,11 +815,14 @@ class _RatingDialogState extends State<RatingDialog> with SingleTickerProviderSt
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                    borderSide: BorderSide(color: AppColors.primary, width: 2),
                   ),
                 ),
               ),
+
               const SizedBox(height: 24),
+
+              // Submit button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
