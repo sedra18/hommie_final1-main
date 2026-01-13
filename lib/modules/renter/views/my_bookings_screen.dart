@@ -1,9 +1,18 @@
+// ═══════════════════════════════════════════════════════════
+// MY BOOKINGS SCREEN (FOR RENTERS) - WITH ALL TAB ADDED
+// ✅ Added "All" tab to show all bookings
+// ✅ All tab updates when bookings are modified
+// ═══════════════════════════════════════════════════════════
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hommie/app/utils/app_colors.dart';
-import 'package:hommie/data/services/bookings_service.dart';
+
 import 'package:hommie/data/models/bookings/bookings_request_model.dart';
+import 'package:hommie/data/services/bookings_service.dart';
+
 import 'package:hommie/widgets/my_bookings_card.dart';
+import 'package:intl/intl.dart';
 
 class MyBookingsScreen extends StatefulWidget {
   const MyBookingsScreen({super.key});
@@ -17,6 +26,8 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
   late TabController _tabController;
   final BookingService _bookingService = Get.put(BookingService());
 
+  // ✅ Added list for all bookings
+  List<BookingRequestModel> _allBookings = [];
   List<BookingRequestModel> _pendingBookings = [];
   List<BookingRequestModel> _approvedBookings = [];
   List<BookingRequestModel> _completedBookings = [];
@@ -27,11 +38,13 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    // ✅ Changed from 4 to 5 tabs (added "All" tab)
+    _tabController = TabController(length: 5, vsync: this);
 
     print('');
     print('═══════════════════════════════════════════════════════════');
     print('📋 MY BOOKINGS SCREEN WITH AUTO-COMPLETE INITIALIZED');
+    print('✅ ALL TAB FEATURE ENABLED');
     print('═══════════════════════════════════════════════════════════');
 
     _loadAllBookings();
@@ -50,6 +63,9 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
     try {
       final allBookings = await _bookingService.getMyBookings();
       final processedBookings = _processBookingsWithExpiry(allBookings);
+
+      // ✅ Store ALL bookings for the "All" tab
+      _allBookings = processedBookings;
 
       _pendingBookings = processedBookings
           .where((b) => 
@@ -71,6 +87,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
 
       print('');
       print('📊 BOOKINGS LOADED & PROCESSED:');
+      print('   All: ${_allBookings.length}'); // ✅ Added
       print('   Pending: ${_pendingBookings.length}');
       print('   Approved (Active): ${_approvedBookings.length}');
       print('   Completed (Auto-moved): ${_completedBookings.length}');
@@ -108,7 +125,6 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
         print('   End date: ${booking.endDate} (Passed)');
         print('   Status changed: approved → completed');
         
-        // ✅ FIXED: Use copyWith() from your model
         return booking.copyWith(status: 'completed');
       }
       
@@ -195,6 +211,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
           snackPosition: SnackPosition.BOTTOM,
         );
 
+        // ✅ Reload to update ALL tabs including "All" tab
         _loadAllBookings();
       } else {
         Get.snackbar(
@@ -216,12 +233,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
     }
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // UPDATE BOOKING DATES
-  // ═══════════════════════════════════════════════════════════
-
   Future<void> _updateBookingDates(BookingRequestModel booking) async {
-    // Parse current dates
     DateTime? currentStartDate = DateTime.tryParse(booking.startDate);
     DateTime? currentEndDate = DateTime.tryParse(booking.endDate);
 
@@ -235,7 +247,6 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
       return;
     }
 
-    // Show date range picker
     final DateTimeRange? picked = await showDateRangePicker(
       context: context,
       firstDate: DateTime.now(),
@@ -264,7 +275,6 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
 
     if (picked == null) return;
 
-    // Show loading
     Get.dialog(
       const Center(
         child: CircularProgressIndicator(color: AppColors.primary),
@@ -279,7 +289,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
         endDate: picked.end,
       );
 
-      Get.back(); // Close loading
+      Get.back();
 
       if (success) {
         Get.snackbar(
@@ -290,6 +300,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
           duration: const Duration(seconds: 3),
         );
 
+        // ✅ Reload to update ALL tabs including "All" tab
         _loadAllBookings();
       } else {
         Get.snackbar(
@@ -335,7 +346,18 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
             fontSize: 14,
             fontWeight: FontWeight.bold,
           ),
+          isScrollable: true, // ✅ Make tabs scrollable for 5 tabs
           tabs: [
+            // ✅ NEW: All tab
+            Tab(
+              text: 'All',
+              icon: _allBookings.isNotEmpty
+                  ? Badge(
+                      label: Text('${_allBookings.length}'),
+                      child: const Icon(Icons.list_alt),
+                    )
+                  : const Icon(Icons.list_alt),
+            ),
             Tab(
               text: 'Pending',
               icon: _pendingBookings.isNotEmpty
@@ -382,6 +404,8 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
           : TabBarView(
               controller: _tabController,
               children: [
+                // ✅ NEW: All bookings tab
+                _buildBookingsList(_allBookings, 'all'),
                 _buildBookingsList(_pendingBookings, 'pending'),
                 _buildBookingsList(_approvedBookings, 'approved'),
                 _buildBookingsList(_completedBookings, 'completed'),
@@ -404,24 +428,26 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
         itemCount: bookings.length,
         itemBuilder: (context, index) {
           final booking = bookings[index];
+          // ✅ Get actual booking status for actions (important for "All" tab)
+          final actualStatus = booking.status?.toLowerCase() ?? '';
 
           return Padding(
             padding: const EdgeInsets.only(bottom: 16),
             child: MyBookingCard(
               booking: booking,
-              status: status,
-              onCancel: (status == 'pending' || 
-                        status == 'pending_owner_approval' ||
-                        status == 'approved')
+              status: status == 'all' ? actualStatus : status, // ✅ Pass correct status
+              onCancel: (actualStatus == 'pending' || 
+                        actualStatus == 'pending_owner_approval' ||
+                        actualStatus == 'approved')
                   ? () => _cancelBooking(booking)
                   : null,
-              onUpdate: (status == 'pending' || 
-                        status == 'pending_owner_approval' ||
-                        status == 'approved')
+              onUpdate: (actualStatus == 'pending' || 
+                        actualStatus == 'pending_owner_approval' ||
+                        actualStatus == 'approved')
                   ? () => _updateBookingDates(booking)
                   : null,
               onReviewSubmitted: () {
-                _loadAllBookings();
+                _loadAllBookings(); // ✅ Refresh all tabs when review submitted
               },
             ),
           );
@@ -436,6 +462,11 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
     String subtitle;
 
     switch (status) {
+      case 'all':
+        icon = Icons.inbox_outlined;
+        message = 'No bookings yet';
+        subtitle = 'All your bookings will appear here';
+        break;
       case 'pending':
       case 'pending_owner_approval':
         icon = Icons.pending_outlined;
