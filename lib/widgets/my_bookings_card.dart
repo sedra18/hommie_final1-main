@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+
 import 'package:hommie/app/utils/app_colors.dart';
+
 import 'package:hommie/data/models/bookings/bookings_request_model.dart';
 import 'package:hommie/data/services/bookings_service.dart';
 
 // ═══════════════════════════════════════════════════════════
-// ENHANCED MY BOOKING CARD - FIXED UI
-// ✅ No overflow errors
-// ✅ Better date formatting
-// ✅ Improved responsive layout
-// ✅ No external dependencies
+// MY BOOKING CARD - RENTER SIDE
+// ✅ Shows snackbar when trying to update pending bookings
+// ✅ Prevents updates until owner approval
 // ═══════════════════════════════════════════════════════════
 
 class MyBookingCard extends StatefulWidget {
@@ -79,6 +79,38 @@ class _MyBookingCardState extends State<MyBookingCard> {
     );
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // HANDLE UPDATE BUTTON CLICK WITH RESTRICTION
+  // ═══════════════════════════════════════════════════════════
+  void _handleUpdateClick() {
+    final status = widget.status.toLowerCase();
+    
+    // Check if booking is pending
+    if (status == 'pending' || status == 'pending_owner_approval') {
+      // Show snackbar - cannot update until approved
+      Get.snackbar(
+        'Update Not Allowed',
+        'You cannot update this booking until the owner approves your request.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+        icon: const Icon(Icons.lock, color: Colors.white),
+        duration: const Duration(seconds: 4),
+        margin: const EdgeInsets.all(16),
+        borderRadius: 12,
+        isDismissible: true,
+        dismissDirection: DismissDirection.horizontal,
+        forwardAnimationCurve: Curves.easeOutBack,
+      );
+      return;
+    }
+    
+    // If approved, allow update
+    if (widget.onUpdate != null) {
+      widget.onUpdate!();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     print('🎴 MyBookingCard building for booking ID: ${widget.booking.id}');
@@ -88,6 +120,8 @@ class _MyBookingCardState extends State<MyBookingCard> {
     
     final endDate = DateTime.tryParse(widget.booking.endDate ?? '');
     final hasEnded = endDate != null && DateTime.now().isAfter(endDate);
+    final status = widget.status.toLowerCase();
+    final isPending = status == 'pending' || status == 'pending_owner_approval';
     
     return Card(
       margin: EdgeInsets.zero,
@@ -179,7 +213,7 @@ class _MyBookingCardState extends State<MyBookingCard> {
 
                   const SizedBox(height: 16),
 
-                  // Dates - FIXED OVERFLOW
+                  // Dates
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -293,8 +327,7 @@ class _MyBookingCardState extends State<MyBookingCard> {
 
                   // Completed booking actions
                   if (hasEnded && 
-                      (widget.status.toLowerCase() == 'approved' || 
-                       widget.status.toLowerCase() == 'completed')) ...[
+                      (status == 'approved' || status == 'completed')) ...[
                     const SizedBox(height: 16),
                     Container(
                       padding: const EdgeInsets.all(12),
@@ -346,21 +379,25 @@ class _MyBookingCardState extends State<MyBookingCard> {
                     ),
                   ],
 
-                  // Update and Cancel buttons for approved bookings
-                  if (widget.status.toLowerCase() == 'approved' && !hasEnded) ...[
+                  // ═══════════════════════════════════════════════════════════
+                  // UPDATE AND CANCEL BUTTONS - WITH RESTRICTION LOGIC
+                  // ═══════════════════════════════════════════════════════════
+                  
+                  // For APPROVED bookings (not ended yet)
+                  if (status == 'approved' && !hasEnded) ...[
                     const SizedBox(height: 16),
                     Row(
                       children: [
-                        // Update button
+                        // Update button - ENABLED for approved bookings
                         if (widget.onUpdate != null)
                           Expanded(
                             child: OutlinedButton.icon(
-                              onPressed: widget.onUpdate,
+                              onPressed: _handleUpdateClick,
                               icon: const Icon(Icons.edit_calendar, size: 18),
                               label: const Text('Update'),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: AppColors.primary,
-                                side: const BorderSide(color: AppColors.primary),
+                                side: const BorderSide(color: AppColors.primary, width: 1.5),
                                 padding: const EdgeInsets.symmetric(vertical: 12),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
@@ -381,7 +418,7 @@ class _MyBookingCardState extends State<MyBookingCard> {
                               label: const Text('Cancel'),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: Colors.red,
-                                side: const BorderSide(color: Colors.red),
+                                side: const BorderSide(color: Colors.red, width: 1.5),
                                 padding: const EdgeInsets.symmetric(vertical: 12),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
@@ -393,27 +430,26 @@ class _MyBookingCardState extends State<MyBookingCard> {
                     ),
                   ],
 
-                  // Update and Cancel buttons for pending bookings
-                  if ((widget.status.toLowerCase() == 'pending' || 
-                       widget.status.toLowerCase() == 'pending_owner_approval') && 
-                      !hasEnded) ...[
+                  // For PENDING bookings
+                  if (isPending && !hasEnded) ...[
                     const SizedBox(height: 16),
                     Row(
                       children: [
-                        // Update button
+                        // Update button - DISABLED with visual feedback
                         if (widget.onUpdate != null)
                           Expanded(
                             child: OutlinedButton.icon(
-                              onPressed: widget.onUpdate,
-                              icon: const Icon(Icons.edit_calendar, size: 18),
+                              onPressed: _handleUpdateClick, // Shows snackbar
+                              icon: const Icon(Icons.lock, size: 18),
                               label: const Text('Update'),
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: AppColors.primary,
-                                side: const BorderSide(color: AppColors.primary),
+                                foregroundColor: Colors.grey,
+                                side: BorderSide(color: Colors.grey.shade300, width: 1.5),
                                 padding: const EdgeInsets.symmetric(vertical: 12),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
+                                backgroundColor: Colors.grey.shade100,
                               ),
                             ),
                           ),
@@ -421,7 +457,7 @@ class _MyBookingCardState extends State<MyBookingCard> {
                         if (widget.onUpdate != null && widget.onCancel != null)
                           const SizedBox(width: 12),
 
-                        // Cancel button
+                        // Cancel button - ENABLED
                         if (widget.onCancel != null)
                           Expanded(
                             child: OutlinedButton.icon(
@@ -430,7 +466,7 @@ class _MyBookingCardState extends State<MyBookingCard> {
                               label: const Text('Cancel'),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: Colors.red,
-                                side: const BorderSide(color: Colors.red),
+                                side: const BorderSide(color: Colors.red, width: 1.5),
                                 padding: const EdgeInsets.symmetric(vertical: 12),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
@@ -483,11 +519,9 @@ class _MyBookingCardState extends State<MyBookingCard> {
     );
   }
 
-  // Format date helper - prevents overflow
   String _formatDate(String dateStr) {
     try {
       final date = DateTime.parse(dateStr);
-      // Custom format: "Jan 15, 2026"
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
                       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       return '${months[date.month - 1]} ${date.day}, ${date.year}';
@@ -556,7 +590,7 @@ class _MyBookingCardState extends State<MyBookingCard> {
 }
 
 // ═══════════════════════════════════════════════════════════
-// RATING DIALOG - Same as before
+// RATING DIALOG
 // ═══════════════════════════════════════════════════════════
 
 class RatingDialog extends StatefulWidget {
@@ -645,14 +679,17 @@ class _RatingDialogState extends State<RatingDialog> with SingleTickerProviderSt
           widget.onReviewSubmitted!();
         }
       } else {
-        throw Exception(result['error'] ?? 'Failed to submit review');
+        Get.snackbar(
+          'Error',
+          result['message'] ?? 'Failed to submit review',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
       }
     } catch (e) {
-      Get.back(); // Close dialog even on error
-      
       Get.snackbar(
         'Error',
-        'Failed to submit review: $e',
+        'An error occurred: $e',
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );
@@ -666,217 +703,127 @@ class _RatingDialogState extends State<RatingDialog> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 400),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(
         padding: const EdgeInsets.all(24),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Header
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      Icons.star_rounded,
-                      color: AppColors.primary,
-                      size: 28,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text(
-                      'Rate Your Stay',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Get.back(),
-                  ),
-                ],
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header
+            const Icon(
+              Icons.star_rounded,
+              size: 60,
+              color: Colors.amber,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Rate Your Stay',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
               ),
-
-              const SizedBox(height: 24),
-
-              // Apartment info
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.apartment, color: AppColors.primary),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        widget.booking.apartmentTitle ?? 'Apartment',
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              widget.booking.apartmentTitle ?? 'Apartment',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[600],
               ),
+              textAlign: TextAlign.center,
+            ),
+            
+            const SizedBox(height: 24),
 
-              const SizedBox(height: 24),
-
-              // Rating stars
-              const Text(
-                'How was your experience?',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              Row(
+            // Star Rating
+            ScaleTransition(
+              scale: _scaleAnimation,
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(5, (index) {
-                  final starNumber = index + 1;
-                  final isSelected = _selectedRating >= starNumber;
-
                   return GestureDetector(
                     onTap: () {
-                      setState(() => _selectedRating = starNumber);
+                      setState(() => _selectedRating = index + 1);
                       _animateStarTap();
                     },
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: ScaleTransition(
-                        scale: _scaleAnimation,
-                        child: Icon(
-                          isSelected ? Icons.star_rounded : Icons.star_outline_rounded,
-                          size: 48,
-                          color: isSelected 
-                              ? const Color(0xFFFFB800)
-                              : Colors.grey.shade300,
-                        ),
+                      child: Icon(
+                        index < _selectedRating
+                            ? Icons.star_rounded
+                            : Icons.star_outline_rounded,
+                        size: 40,
+                        color: Colors.amber,
                       ),
                     ),
                   );
                 }),
               ),
+            ),
 
-              if (_selectedRating > 0) ...[
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    _getRatingText(_selectedRating),
-                    style: TextStyle(
-                      color: AppColors.primary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
+            const SizedBox(height: 24),
+
+            // Comment Field
+            TextField(
+              controller: _commentController,
+              maxLines: 3,
+              decoration: InputDecoration(
+                hintText: 'Share your experience (optional)',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Buttons
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _isSubmitting ? null : () => Get.back(),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
+                    child: const Text('Skip'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _isSubmitting ? null : _submitReview,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: _isSubmitting
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Text('Submit'),
                   ),
                 ),
               ],
-
-              const SizedBox(height: 24),
-
-              // Comment field
-              TextField(
-                controller: _commentController,
-                maxLines: 3,
-                maxLength: 300,
-                decoration: InputDecoration(
-                  hintText: 'Add a comment (optional)...',
-                  filled: true,
-                  fillColor: Colors.grey.shade50,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: AppColors.primary, width: 2),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // Submit button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isSubmitting || _selectedRating == 0
-                      ? null
-                      : _submitReview,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    disabledBackgroundColor: Colors.grey.shade300,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: _isSubmitting
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : const Text(
-                          'Submit Review',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
-  }
-
-  String _getRatingText(int rating) {
-    switch (rating) {
-      case 1:
-        return 'Poor Experience';
-      case 2:
-        return 'Below Average';
-      case 3:
-        return 'Average';
-      case 4:
-        return 'Good Experience';
-      case 5:
-        return 'Excellent!';
-      default:
-        return '';
-    }
   }
 }

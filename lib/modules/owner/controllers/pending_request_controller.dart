@@ -2,17 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hommie/data/models/bookings/bookings_request_model.dart';
 import 'package:hommie/data/services/bookings_service.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:get_storage/get_storage.dart';
+import 'package:hommie/helpers/base_url.dart';
 
 // ═══════════════════════════════════════════════════════════
-// OWNER DASHBOARD CONTROLLER - FULLY CORRECTED
-// ✅ Uses correct BookingService method: getOwnerBookings()
-// ✅ Filters pending requests after loading
-// ✅ Null safety checks for request.id
-// ✅ Better error handling
+// OWNER DASHBOARD CONTROLLER - WITH PROFILE DATA
+// ✅ Fetches user profile data for each booking
+// ✅ Gets name and avatar from profile API
+// ✅ Updates booking model with profile data
 // ═══════════════════════════════════════════════════════════
 
 class OwnerDashboardController extends GetxController {
   final BookingService _bookingService = Get.find<BookingService>();
+  final box = GetStorage();
 
   final RxList<BookingRequestModel> pendingRequests =
       <BookingRequestModel>[].obs;
@@ -23,6 +27,10 @@ class OwnerDashboardController extends GetxController {
   final RxBool isLoading = false.obs;
   final RxBool isRefreshing = false.obs;
 
+  // ✅ Cache for user profile data
+  final RxMap<int, Map<String, dynamic>> userProfileCache = 
+      <int, Map<String, dynamic>>{}.obs;
+
   @override
   void onInit() {
     super.onInit();
@@ -30,10 +38,102 @@ class OwnerDashboardController extends GetxController {
   }
 
   // ═══════════════════════════════════════════════════════════
+  // FETCH USER PROFILE DATA
+  // ✅ Gets profile data from API
+  // ✅ Caches results to avoid duplicate requests
+  // ═══════════════════════════════════════════════════════════
+
+  Future<Map<String, dynamic>?> fetchUserProfile(int userId) async {
+    try {
+      // Check cache first
+      if (userProfileCache.containsKey(userId)) {
+        print('   ✅ Using cached profile for user $userId');
+        return userProfileCache[userId];
+      }
+
+      final token = box.read('access_token');
+      if (token == null) {
+        print('   ❌ No access token');
+        return null;
+      }
+
+      print('   📡 Fetching profile for user $userId...');
+
+      final response = await http.get(
+        Uri.parse('${BaseUrl.pubBaseUrl}/api/users/$userId/profile'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final profileData = {
+          'name': data['data']?['name'] ?? 'Unknown User',
+          'avatar': data['data']?['avatar'],
+          'email': data['data']?['email'],
+          'phone': data['data']?['phone'],
+        };
+        
+        // Cache the result
+        userProfileCache[userId] = profileData;
+        
+        print('   ✅ Profile fetched: ${profileData['name']}');
+        return profileData;
+      } else {
+        print('   ⚠️ Failed to fetch profile: ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      print('   ❌ Error fetching profile: $e');
+      return null;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // GET AVATAR URL
+  // ✅ Returns full URL for avatar or null
+  // ═══════════════════════════════════════════════════════════
+
+  String? getAvatarUrl(String? avatarPath) {
+    if (avatarPath == null || avatarPath.isEmpty) return null;
+    
+    // If already a full URL
+    if (avatarPath.startsWith('http')) {
+      return avatarPath;
+    }
+    
+    // Build full URL
+    return '${BaseUrl.pubBaseUrl}/$avatarPath';
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // ENRICH BOOKING WITH PROFILE DATA
+  // ✅ Fetches profile and updates booking model
+  // ═══════════════════════════════════════════════════════════
+
+  Future<BookingRequestModel> enrichBookingWithProfile(
+    BookingRequestModel booking,
+  ) async {
+    if (booking.userId == null) {
+      return booking;
+    }
+
+    final profile = await fetchUserProfile(booking.userId!);
+    
+    if (profile != null) {
+      // Update the booking model with profile data
+      booking.userName = profile['name'];
+      booking.userAvatar = getAvatarUrl(profile['avatar']);
+    }
+    
+    return booking;
+  }
+
+  // ═══════════════════════════════════════════════════════════
   // LOAD ALL BOOKING REQUESTS
-  // ✅ USES: getMyBookings() which works for both owner and renter
-  // ✅ Backend determines owner/renter from token
-  // ✅ Then filters by status on client side
+  // ✅ Fetches bookings and enriches with profile data
   // ═══════════════════════════════════════════════════════════
 
   Future<void> loadAllRequests() async {
@@ -45,23 +145,31 @@ class OwnerDashboardController extends GetxController {
       print('🔍 [OWNER DASHBOARD] Loading all booking requests...');
       print('═══════════════════════════════════════════════════════════');
 
-      // ✅ UNIFIED METHOD: Backend determines owner/renter from token
+      // Get all bookings
       final allRequests = await _bookingService.getMyBookings();
-
       print('📦 Received ${allRequests.length} total requests');
 
-      // ✅ Filter by status
-      pendingRequests.value = allRequests.where((b) {
+      // ✅ Enrich each booking with profile data
+      print('\n📥 Fetching user profiles...');
+      final enrichedRequests = <BookingRequestModel>[];
+      
+      for (var booking in allRequests) {
+        final enriched = await enrichBookingWithProfile(booking);
+        enrichedRequests.add(enriched);
+      }
+
+      // Filter by status
+      pendingRequests.value = enrichedRequests.where((b) {
         final status = b.status?.toLowerCase() ?? '';
         return status == 'pending_owner_approval' || status == 'pending';
       }).toList();
 
-      approvedRequests.value = allRequests.where((b) {
+      approvedRequests.value = enrichedRequests.where((b) {
         final status = b.status?.toLowerCase() ?? '';
         return status == 'approved' || status == 'confirmed';
       }).toList();
 
-      rejectedRequests.value = allRequests.where((b) {
+      rejectedRequests.value = enrichedRequests.where((b) {
         final status = b.status?.toLowerCase() ?? '';
         return status == 'rejected' || status == 'declined';
       }).toList();
@@ -73,9 +181,12 @@ class OwnerDashboardController extends GetxController {
       print('   Rejected: ${rejectedRequests.length}');
       
       if (pendingRequests.isNotEmpty) {
-        print('\n   Pending requests:');
+        print('\n   📋 Pending requests:');
         for (var req in pendingRequests) {
           print('     - ${req.userName ?? "Unknown"} (ID: ${req.id})');
+          if (req.userAvatar != null) {
+            print('       Avatar: ${req.userAvatar}');
+          }
         }
       }
       print('═══════════════════════════════════════════════════════════');
@@ -102,6 +213,10 @@ class OwnerDashboardController extends GetxController {
 
   Future<void> refreshRequests() async {
     isRefreshing.value = true;
+    
+    // Clear cache to get fresh data
+    userProfileCache.clear();
+    
     await loadAllRequests();
     isRefreshing.value = false;
   }
@@ -113,11 +228,9 @@ class OwnerDashboardController extends GetxController {
 
   // ═══════════════════════════════════════════════════════════
   // APPROVE A BOOKING REQUEST
-  // ✅ Uses approveBooking() which exists in BookingService
   // ═══════════════════════════════════════════════════════════
 
   Future<void> approveRequest(BookingRequestModel request) async {
-    // ✅ Check if ID exists
     if (request.id == null) {
       print('❌ Cannot approve request: ID is null');
       Get.snackbar(
@@ -149,7 +262,7 @@ class OwnerDashboardController extends GetxController {
         print('✅ Booking approved successfully');
         print('═══════════════════════════════════════════════════════════');
 
-        // Remove from pending list and refresh
+        // Refresh lists
         await loadAllRequests();
 
         Get.snackbar(
@@ -187,11 +300,9 @@ class OwnerDashboardController extends GetxController {
 
   // ═══════════════════════════════════════════════════════════
   // REJECT A BOOKING REQUEST
-  // ✅ Uses rejectBooking() which exists in BookingService
   // ═══════════════════════════════════════════════════════════
 
   Future<void> rejectRequest(BookingRequestModel request) async {
-    // ✅ Check if ID exists
     if (request.id == null) {
       print('❌ Cannot reject request: ID is null');
       Get.snackbar(
@@ -246,7 +357,7 @@ class OwnerDashboardController extends GetxController {
         print('✅ Booking rejected successfully');
         print('═══════════════════════════════════════════════════════════');
 
-        // Refresh all lists
+        // Refresh lists
         await loadAllRequests();
 
         Get.snackbar(
@@ -287,7 +398,6 @@ class OwnerDashboardController extends GetxController {
   // ═══════════════════════════════════════════════════════════
 
   void goToMessages(BookingRequestModel request) {
-    // ✅ Check if userId exists
     if (request.userId == null) {
       print('❌ Cannot open messages: User ID is null');
       Get.snackbar(
@@ -310,6 +420,16 @@ class OwnerDashboardController extends GetxController {
         'userAvatar': request.userAvatar,
       },
     );
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // CLEAR PROFILE CACHE
+  // ✅ Useful when user data might have changed
+  // ═══════════════════════════════════════════════════════════
+
+  void clearProfileCache() {
+    userProfileCache.clear();
+    print('🗑️ Profile cache cleared');
   }
 
   // ═══════════════════════════════════════════════════════════

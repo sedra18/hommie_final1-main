@@ -1,14 +1,11 @@
-  // ═══════════════════════════════════════════════════════════
-  // USER MODEL
-  // Represents user data from backend
-  // ═══════════════════════════════════════════════════════════
+
 
   class UserModel {
     final int id;
     final String name;
     final String email;
-    final String role; // 'owner' or 'renter'
-    final String approvalStatus; // 'pending', 'approved', 'rejected'
+    final String role; 
+    final String approvalStatus; 
     final String? phone;
     final String? avatar;
     final DateTime? createdAt;
@@ -26,9 +23,9 @@
       this.updatedAt,
     });
 
-    // ═══════════════════════════════════════════════════════════
+
     // FROM JSON - Parse from API response
-    // ═══════════════════════════════════════════════════════════
+
     
     factory UserModel.fromJson(Map<String, dynamic> json) {
       return UserModel(
@@ -48,9 +45,9 @@
       );
     }
 
-    // ═══════════════════════════════════════════════════════════
+
     // TO JSON - Convert to JSON for API requests
-    // ═══════════════════════════════════════════════════════════
+
     
     Map<String, dynamic> toJson() {
       return {

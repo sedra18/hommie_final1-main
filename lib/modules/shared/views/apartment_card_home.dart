@@ -1,12 +1,15 @@
+// ═══════════════════════════════════════════════════════════
+// FIXED APARTMENT CARD HOME - WITH DEBUGGING
+// ✅ Better error handling for images
+// ✅ Shows actual image URL for debugging
+// ✅ Fallback to placeholder if image fails
+// ═══════════════════════════════════════════════════════════
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hommie/data/models/apartment/apartment_model.dart';
 import 'package:hommie/modules/renter/views/apartment_details_screen.dart';
-
-// ═══════════════════════════════════════════════════════════
-// HOME APARTMENT CARD - FINAL FIXED VERSION
-// ✅ Removed parameter from navigateToDetails
-// ═══════════════════════════════════════════════════════════
+import 'package:hommie/app/utils/app_colors.dart';
 
 class ApartmentCardHome extends StatelessWidget {
   final ApartmentModel apartment;
@@ -20,7 +23,6 @@ class ApartmentCardHome extends StatelessWidget {
     this.showFavoriteButton = true,
   });
 
-  // ✅ FIXED: No parameter - use class field 'apartment' directly
   void _navigateToDetails() {
     print('🏠 Navigating to: ${apartment.title}');
     
@@ -37,8 +39,19 @@ class ApartmentCardHome extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
+    // ✅ DEBUG: Print image URL
+    print('');
+    print('═══════════════════════════════════════════════════════════');
+    print('🏠 RENDERING APARTMENT CARD: ${apartment.title}');
+    print('   Main Image URL: ${apartment.mainImage}');
+    print('   Image URLs Count: ${apartment.imageUrls.length}');
+    if (apartment.imageUrls.isNotEmpty) {
+      print('   First Image URL: ${apartment.imageUrls.first}');
+    }
+    print('═══════════════════════════════════════════════════════════');
+    
     return GestureDetector(
-      onTap: _navigateToDetails,  // ✅ Now works perfectly
+      onTap: _navigateToDetails,
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
@@ -63,39 +76,7 @@ class ApartmentCardHome extends StatelessWidget {
                     topLeft: Radius.circular(16),
                     topRight: Radius.circular(16),
                   ),
-                  child: apartment.mainImage.isNotEmpty
-                      ? Image.network(
-                          apartment.mainImage,
-                          height: 200,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              height: 200,
-                              color: Colors.grey[300],
-                              child: const Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.image_not_supported, size: 50, color: Colors.grey),
-                                  SizedBox(height: 8),
-                                  Text('Image not available', style: TextStyle(color: Colors.grey)),
-                                ],
-                              ),
-                            );
-                          },
-                        )
-                      : Container(
-                          height: 200,
-                          color: Colors.grey[300],
-                          child: const Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.image, size: 50, color: Colors.grey),
-                              SizedBox(height: 8),
-                              Text('No image', style: TextStyle(color: Colors.grey)),
-                            ],
-                          ),
-                        ),
+                  child: _buildImage(context),
                 ),
                 
                 // Favorite Button
@@ -212,24 +193,6 @@ class ApartmentCardHome extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-
-                  // Details Row
-                  Row(
-                    children: [
-                      _buildInfoChip(
-                        icon: Icons.bed_outlined,
-                        label: '${apartment.roomsCount} Beds',
-                        isDark: isDark,
-                      ),
-                      const SizedBox(width: 8),
-                      _buildInfoChip(
-                        icon: Icons.square_foot_outlined,
-                        label: '${apartment.apartmentSize} m²',
-                        isDark: isDark,
-                      ),
-                    ],
-                  ),
                 ],
               ),
             ),
@@ -239,36 +202,109 @@ class ApartmentCardHome extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoChip({
-    required IconData icon,
-    required String label,
-    required bool isDark,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: isDark 
-            ? Colors.white.withOpacity(0.1) 
-            : const Color(0xFF3A7AFE).withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: 16,
-            color: isDark ? Colors.white70 : const Color(0xFF3A7AFE),
-          ),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: isDark ? Colors.white70 : const Color(0xFF3A7AFE),
+  // ═══════════════════════════════════════════════════════════
+  // BUILD IMAGE WITH BETTER ERROR HANDLING
+  // ═══════════════════════════════════════════════════════════
+
+  Widget _buildImage(BuildContext context) {
+    // Check if mainImage exists
+    if (apartment.mainImage.isEmpty) {
+      print('⚠️  ${apartment.title}: No main image URL');
+      return _buildPlaceholder('No image URL');
+    }
+
+    print('📸 Loading image: ${apartment.mainImage}');
+
+    return Image.network(
+      apartment.mainImage,
+      height: 200,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) {
+          print('✅ Image loaded successfully: ${apartment.title}');
+          return child;
+        }
+        
+        // Show loading progress
+        final progress = loadingProgress.expectedTotalBytes != null
+            ? loadingProgress.cumulativeBytesLoaded / 
+              loadingProgress.expectedTotalBytes!
+            : null;
+        
+        return Container(
+          height: 200,
+          color: Colors.grey[300],
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(
+                  value: progress,
+                  color: AppColors.primary,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  progress != null 
+                      ? '${(progress * 100).toInt()}%' 
+                      : 'Loading...',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
             ),
           ),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) {
+        print('');
+        print('❌ IMAGE LOAD ERROR for ${apartment.title}');
+        print('   URL: ${apartment.mainImage}');
+        print('   Error: $error');
+        print('   Stack trace: ${stackTrace.toString().split('\n').first}');
+        print('');
+        
+        return _buildPlaceholder('Image failed to load');
+      },
+    );
+  }
+
+  Widget _buildPlaceholder(String message) {
+    return Container(
+      height: 200,
+      color: Colors.grey[300],
+      width: double.infinity,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.image_not_supported, 
+            size: 50, 
+            color: Colors.grey
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            style: const TextStyle(color: Colors.grey),
+          ),
+          const SizedBox(height: 4),
+          // ✅ DEBUG: Show the URL that failed
+          if (apartment.mainImage.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                apartment.mainImage,
+                style: const TextStyle(
+                  color: Colors.grey,
+                  fontSize: 10,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+              ),
+            ),
         ],
       ),
     );

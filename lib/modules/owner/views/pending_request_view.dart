@@ -1,8 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+
 import 'package:hommie/data/models/bookings/bookings_request_model.dart';
 import 'package:hommie/data/services/bookings_service.dart';
+
 import 'package:hommie/widgets/request_card.dart';
+
+// ═══════════════════════════════════════════════════════════
+// ENHANCED OWNER DASHBOARD SCREEN
+// ✅ Beautiful modern UI with gradients and animations
+// ✅ Shows both new bookings AND update requests (future feature)
+// ✅ Statistics cards with live counts
+// ✅ Same functionality as before - just better UI
+// ═══════════════════════════════════════════════════════════
 
 class OwnerDashboardScreen extends StatefulWidget {
   const OwnerDashboardScreen({super.key});
@@ -42,8 +52,6 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
 
   // ═══════════════════════════════════════════════════════════
   // LOAD ALL REQUESTS
-  // ✅ Fetches ONLY bookings for this owner's apartments
-  // ✅ Separates by status
   // ═══════════════════════════════════════════════════════════
 
   Future<void> _loadAllRequests() async {
@@ -51,22 +59,17 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
     setState(() => _isLoading = true);
 
     try {
-      // ✅ GET /api/bookings (backend determines owner/renter from token)
       final allRequests = await _bookingService.getMyBookings();
 
       print('📦 Raw requests received: ${allRequests.length}');
       
-      // Log each request for debugging
       for (var request in allRequests) {
         print('   - Booking #${request.id}: "${request.status}" for ${request.apartmentTitle}');
       }
 
-      // ✅ FIXED: Check for exact status from backend
-      // Backend returns 'pending_owner_approval' for pending owner requests
       _pendingRequests = allRequests
           .where((b) {
             final status = b.status?.toLowerCase() ?? '';
-            // Match exactly what backend sends
             return status == 'pending_owner_approval' || 
                    status == 'pending';
           })
@@ -92,14 +95,6 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
       print('   Rejected: ${_rejectedRequests.length}');
       print('   Approved: ${_approvedRequests.length}');
       print('   Total: ${allRequests.length}');
-      
-      // Debug: Show which requests went where
-      if (_pendingRequests.isNotEmpty) {
-        print('\n   Pending requests:');
-        for (var req in _pendingRequests) {
-          print('     - Booking #${req.id}: "${req.status}"');
-        }
-      }
       print('═══════════════════════════════════════════════════════════');
 
       setState(() => _isLoading = false);
@@ -123,11 +118,9 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
 
   // ═══════════════════════════════════════════════════════════
   // APPROVE REQUEST
-  // ✅ FIXED: Proper null check for request.id
   // ═══════════════════════════════════════════════════════════
 
   Future<void> _approveRequest(BookingRequestModel request) async {
-    // ✅ Check if ID exists
     if (request.id == null) {
       print('❌ Cannot approve: ID is null');
       Get.snackbar(
@@ -150,7 +143,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
 
     final confirmed = await Get.dialog<bool>(
       AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
           children: [
             Icon(Icons.check_circle, color: Colors.green, size: 28),
@@ -172,6 +165,9 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green,
               foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
             child: const Text('موافق'),
           ),
@@ -180,7 +176,6 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
     );
 
     if (confirmed == true) {
-      // Show loading indicator
       Get.dialog(
         const Center(child: CircularProgressIndicator()),
         barrierDismissible: false,
@@ -188,7 +183,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
 
       final success = await _bookingService.approveBooking(request.id!);
       
-      Get.back(); // Close loading
+      Get.back();
 
       if (success) {
         print('✅ Booking approved successfully');
@@ -204,7 +199,6 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
           duration: const Duration(seconds: 3),
         );
 
-        // Reload data
         await _loadAllRequests();
       } else {
         print('❌ Failed to approve booking');
@@ -225,11 +219,9 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
 
   // ═══════════════════════════════════════════════════════════
   // REJECT REQUEST
-  // ✅ FIXED: Proper null check for request.id
   // ═══════════════════════════════════════════════════════════
 
   Future<void> _rejectRequest(BookingRequestModel request) async {
-    // ✅ Check if ID exists
     if (request.id == null) {
       print('❌ Cannot reject: ID is null');
       Get.snackbar(
@@ -252,7 +244,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
 
     final confirmed = await Get.dialog<bool>(
       AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
           children: [
             Icon(Icons.cancel, color: Colors.red, size: 28),
@@ -274,6 +266,9 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
             child: const Text('رفض'),
           ),
@@ -282,7 +277,6 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
     );
 
     if (confirmed == true) {
-      // Show loading indicator
       Get.dialog(
         const Center(child: CircularProgressIndicator()),
         barrierDismissible: false,
@@ -290,7 +284,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
 
       final success = await _bookingService.rejectBooking(request.id!);
       
-      Get.back(); // Close loading
+      Get.back();
 
       if (success) {
         print('✅ Booking rejected successfully');
@@ -306,7 +300,6 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
           duration: const Duration(seconds: 3),
         );
 
-        // Reload data
         await _loadAllRequests();
       } else {
         print('❌ Failed to reject booking');
@@ -326,7 +319,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
   }
 
   // ═══════════════════════════════════════════════════════════
-  // BUILD UI
+  // BUILD UI - ENHANCED WITH MODERN DESIGN
   // ═══════════════════════════════════════════════════════════
 
   @override
@@ -334,78 +327,272 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF1F172A) : const Color(0xFFFAF9FB),
-      appBar: AppBar(
-        title: const Text(
-          'لوحة التحكم',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        centerTitle: true,
-        backgroundColor: isDark ? const Color(0xFF2D2438) : Colors.white,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadAllRequests,
-            tooltip: 'تحديث',
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: const Color(0xFF3A7AFE),
-          labelColor: const Color(0xFF3A7AFE),
-          unselectedLabelColor: isDark ? Colors.grey[400] : Colors.grey[600],
-          tabs: [
-            Tab(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text('قيد الانتظار'),
-                  if (_pendingRequests.isNotEmpty) ...[
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: const BoxDecoration(
-                        color: Colors.orange,
-                        shape: BoxShape.circle,
+      backgroundColor: isDark ? const Color(0xFF1F172A) : const Color(0xFFF5F7FA),
+      body: CustomScrollView(
+        slivers: [
+          // ═══════════════════════════════════════════════════════════
+          // MODERN APP BAR WITH GRADIENT
+          // ═══════════════════════════════════════════════════════════
+          SliverAppBar(
+            expandedHeight: 180,
+            floating: false,
+            pinned: true,
+            backgroundColor: isDark ? const Color(0xFF2D1B3D) : const Color(0xFF3A7AFE),
+            flexibleSpace: FlexibleSpaceBar(
+              title: const Text(
+                'لوحة التحكم',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 22,
+                ),
+              ),
+              background: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: isDark
+                        ? [
+                            const Color(0xFF2D1B3D),
+                            const Color(0xFF1F172A),
+                          ]
+                        : [
+                            const Color(0xFF3A7AFE),
+                            const Color(0xFF1D4ED8),
+                          ],
+                  ),
+                ),
+                child: Stack(
+                  children: [
+                    // Decorative circles
+                    Positioned(
+                      top: -40,
+                      right: -40,
+                      child: Container(
+                        width: 160,
+                        height: 160,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withOpacity(0.1),
+                        ),
                       ),
-                      child: Text(
-                        '${_pendingRequests.length}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
+                    ),
+                    Positioned(
+                      bottom: -20,
+                      left: -20,
+                      child: Container(
+                        width: 120,
+                        height: 120,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withOpacity(0.05),
                         ),
                       ),
                     ),
                   ],
+                ),
+              ),
+            ),
+            actions: [
+              // Refresh button with badge
+              Stack(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.refresh, size: 26),
+                    onPressed: _loadAllRequests,
+                    tooltip: 'تحديث',
+                  ),
+                  if (_pendingRequests.isNotEmpty)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          '${_pendingRequests.length}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(width: 8),
+            ],
+          ),
+
+          // ═══════════════════════════════════════════════════════════
+          // STATISTICS CARDS
+          // ═══════════════════════════════════════════════════════════
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  // Pending Stats
+                  Expanded(
+                    child: _buildStatCard(
+                      icon: Icons.pending_actions,
+                      title: 'قيد الانتظار',
+                      count: _pendingRequests.length,
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFF9800), Color(0xFFF57C00)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Approved Stats
+                  Expanded(
+                    child: _buildStatCard(
+                      icon: Icons.check_circle,
+                      title: 'المقبولة',
+                      count: _approvedRequests.length,
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF4CAF50), Color(0xFF388E3C)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
-            const Tab(text: 'المقبولة'),
-            const Tab(text: 'المرفوضة'),
-          ],
-        ),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                // PENDING TAB
-                _buildRequestsList(_pendingRequests, 'pending'),
-                // APPROVED TAB
-                _buildRequestsList(_approvedRequests, 'approved'),
-                // REJECTED TAB
-                _buildRequestsList(_rejectedRequests, 'rejected'),
-              ],
+          ),
+
+          // ═══════════════════════════════════════════════════════════
+          // TAB BAR - STICKY
+          // ═══════════════════════════════════════════════════════════
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _SliverAppBarDelegate(
+              TabBar(
+                controller: _tabController,
+                labelColor: isDark ? Colors.white : const Color(0xFF3A7AFE),
+                unselectedLabelColor: Colors.grey,
+                indicatorColor: isDark ? Colors.white : const Color(0xFF3A7AFE),
+                indicatorWeight: 3,
+                labelStyle: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                ),
+                tabs: [
+                  Tab(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text('قيد الانتظار'),
+                        if (_pendingRequests.isNotEmpty) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.orange,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '${_pendingRequests.length}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const Tab(text: 'المقبولة'),
+                  const Tab(text: 'المرفوضة'),
+                ],
+              ),
+              isDark,
             ),
+          ),
+
+          // ═══════════════════════════════════════════════════════════
+          // TAB VIEW CONTENT
+          // ═══════════════════════════════════════════════════════════
+          SliverFillRemaining(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildRequestsList(_pendingRequests, 'pending'),
+                      _buildRequestsList(_approvedRequests, 'approved'),
+                      _buildRequestsList(_rejectedRequests, 'rejected'),
+                    ],
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // STATISTICS CARD WIDGET
+  // ═══════════════════════════════════════════════════════════
+  Widget _buildStatCard({
+    required IconData icon,
+    required String title,
+    required int count,
+    required Gradient gradient,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: gradient,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: Colors.white, size: 28),
+          const SizedBox(height: 8),
+          Text(
+            count.toString(),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.9),
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   // ═══════════════════════════════════════════════════════════
   // BUILD REQUESTS LIST
-  // ✅ FIXED: Proper VoidCallback handling with null checks
   // ═══════════════════════════════════════════════════════════
 
   Widget _buildRequestsList(List<BookingRequestModel> requests, String statusType) {
@@ -449,18 +636,61 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen>
         itemBuilder: (context, index) {
           final request = requests[index];
           
-          return BookingRequestCard(
-            request: request,
-            // ✅ FIXED: Provide proper VoidCallback (non-nullable)
-            onApprove: statusType == 'pending'
-                ? () => _approveRequest(request)
-                : () {}, // Empty callback for non-pending
-            onReject: statusType == 'pending'
-                ? () => _rejectRequest(request)
-                : () {}, // Empty callback for non-pending
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: BookingRequestCard(
+              request: request,
+              onApprove: statusType == 'pending'
+                  ? () => _approveRequest(request)
+                  : () {},
+              onReject: statusType == 'pending'
+                  ? () => _rejectRequest(request)
+                  : () {},
+            ),
           );
         },
       ),
     );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// SLIVER APP BAR DELEGATE FOR STICKY TAB BAR
+// ═══════════════════════════════════════════════════════════
+class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
+  _SliverAppBarDelegate(this._tabBar, this.isDark);
+
+  final TabBar _tabBar;
+  final bool isDark;
+
+  @override
+  double get minExtent => _tabBar.preferredSize.height;
+  @override
+  double get maxExtent => _tabBar.preferredSize.height;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1F172A) : Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: _tabBar,
+    );
+  }
+
+  @override
+  bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
+    return false;
   }
 }

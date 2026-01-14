@@ -1,32 +1,38 @@
-// ═══════════════════════════════════════════════════════════
-// BOOKING REQUEST MODEL - COMPLETE VERSION
-// ✅ Matches API specification
-// ✅ Includes apartmentTitle field
-// ✅ Includes all necessary fields for both renter and owner
-// ═══════════════════════════════════════════════════════════
-
 import 'package:hommie/data/models/user/user_model.dart';
+
+// ═══════════════════════════════════════════════════════════
+// BOOKING REQUEST MODEL - ENHANCED WITH UPDATE REQUEST SUPPORT
+// ✅ All original fields preserved
+// ✅ Added isUpdateRequest, originalStartDate, originalEndDate
+// ✅ Supports both new bookings and update requests
+// ═══════════════════════════════════════════════════════════
 
 class BookingRequestModel {
   final int? id;
   final int apartmentId;
-  final String? apartmentTitle;  // ✅ ADDED
-  final int? ownerId;            // ✅ ADDED
-  final String? ownerName;       // ✅ ADDED
-  final String? ownerEmail;      // ✅ ADDED
-  final String? ownerPhone;      // ✅ ADDED
+  final String? apartmentTitle;  
+  final int? ownerId;            
+  final String? ownerName;       
+  final String? ownerEmail;     
+  final String? ownerPhone;     
   final int? userId;
-  final String? userName;
-  final String? userEmail;       // ✅ ADDED
-  final String? userAvatar;
+  String? userName;
+  final String? userEmail;       
+  String? userAvatar;
   final String? userPhone;
   final String startDate;
   final String endDate;
   final String paymentMethod;
   final double? totalPrice;
   final String? status;
-  final String? createdAt;       // ✅ CHANGED to String (API returns string)
-  final String? updatedAt;       // ✅ ADDED
+  final String? createdAt;       
+  final String? updatedAt;
+  
+  // ✅ NEW: Update request fields
+  final bool? isUpdateRequest;        // Indicates if this is an update request
+  final String? originalStartDate;     // Original start date before update
+  final String? originalEndDate;       // Original end date before update
+  final String? updateRequestStatus;   // Status of update request specifically
 
   BookingRequestModel({
     this.id,
@@ -48,24 +54,30 @@ class BookingRequestModel {
     this.status,
     this.createdAt,
     this.updatedAt,
+    // ✅ NEW: Update request parameters
+    this.isUpdateRequest,
+    this.originalStartDate,
+    this.originalEndDate,
+    this.updateRequestStatus,
   });
 
   // ═══════════════════════════════════════════════════════════
   // FROM JSON - Parse from API response
+  // ✅ Enhanced to include update request fields
   // ═══════════════════════════════════════════════════════════
   
   factory BookingRequestModel.fromJson(Map<String, dynamic> json) {
     return BookingRequestModel(
       id: json['id'],
       apartmentId: json['apartment_id'],
-      apartmentTitle: json['apartment']?['title'] ?? json['apartment_title'],  // ✅ ADDED
-      ownerId: json['owner_id'] ?? json['apartment']?['user_id'],  // ✅ ADDED
-      ownerName: json['owner']?['name'] ?? json['owner_name'] ?? json['apartment']?['owner_name'],  // ✅ ADDED
-      ownerEmail: json['owner']?['email'] ?? json['owner_email'],  // ✅ ADDED
-      ownerPhone: json['owner']?['phone'] ?? json['owner_phone'],  // ✅ ADDED
+      apartmentTitle: json['apartment']?['title'] ?? json['apartment_title'],  
+      ownerId: json['owner_id'] ?? json['apartment']?['user_id'],  
+      ownerName: json['owner']?['name'] ?? json['owner_name'] ?? json['apartment']?['owner_name'],
+      ownerEmail: json['owner']?['email'] ?? json['owner_email'], 
+      ownerPhone: json['owner']?['phone'] ?? json['owner_phone'],  
       userId: json['user_id'],
       userName: json['user']?['name'] ?? json['user_name'] ?? 'Unknown',
-      userEmail: json['user']?['email'] ?? json['user_email'],  // ✅ ADDED
+      userEmail: json['user']?['email'] ?? json['user_email'], 
       userAvatar: json['user']?['avatar'] ?? json['user_avatar'],
       userPhone: json['user']?['phone'] ?? json['user_phone'] ?? '',
       startDate: json['start_date'] ?? '',
@@ -75,15 +87,20 @@ class BookingRequestModel {
           ? (json['total_price'] as num).toDouble() 
           : null,
       status: json['status'] ?? 'pending',
-      createdAt: json['created_at'],  // ✅ Keep as string
-      updatedAt: json['updated_at'],  // ✅ ADDED
+      createdAt: json['created_at'],  
+      updatedAt: json['updated_at'],
+      // ✅ NEW: Parse update request fields
+      isUpdateRequest: json['is_update_request'] ?? false,
+      originalStartDate: json['original_start_date'],
+      originalEndDate: json['original_end_date'],
+      updateRequestStatus: json['update_request_status'],
     );
   }
 
   // ═══════════════════════════════════════════════════════════
   // TO JSON - For API requests (matches API specification)
   // ═══════════════════════════════════════════════════════════
-  
+
   Map<String, dynamic> toJson() {
     return {
       'apartment_id': apartmentId,
@@ -95,6 +112,7 @@ class BookingRequestModel {
 
   // ═══════════════════════════════════════════════════════════
   // TO JSON FULL - Include all fields (for display/updates)
+  // ✅ Enhanced with update request fields
   // ═══════════════════════════════════════════════════════════
   
   Map<String, dynamic> toJsonFull() {
@@ -108,6 +126,11 @@ class BookingRequestModel {
       'payment_method': paymentMethod,
       if (totalPrice != null) 'total_price': totalPrice,
       if (status != null) 'status': status,
+      // ✅ NEW: Include update request fields
+      if (isUpdateRequest != null) 'is_update_request': isUpdateRequest,
+      if (originalStartDate != null) 'original_start_date': originalStartDate,
+      if (originalEndDate != null) 'original_end_date': originalEndDate,
+      if (updateRequestStatus != null) 'update_request_status': updateRequestStatus,
     };
   }
 
@@ -137,11 +160,13 @@ class BookingRequestModel {
       paymentMethod: paymentMethod,
       totalPrice: totalPrice,
       status: 'pending',
+      isUpdateRequest: false, // ✅ NEW: Default to false
     );
   }
 
   // ═══════════════════════════════════════════════════════════
   // COPY WITH - Create a copy with updated fields
+  // ✅ Enhanced with update request fields
   // ═══════════════════════════════════════════════════════════
   
   BookingRequestModel copyWith({
@@ -164,6 +189,11 @@ class BookingRequestModel {
     String? status,
     String? createdAt,
     String? updatedAt,
+    // ✅ NEW: Update request parameters
+    bool? isUpdateRequest,
+    String? originalStartDate,
+    String? originalEndDate,
+    String? updateRequestStatus,
   }) {
     return BookingRequestModel(
       id: id ?? this.id,
@@ -185,6 +215,11 @@ class BookingRequestModel {
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      // ✅ NEW: Copy update request fields
+      isUpdateRequest: isUpdateRequest ?? this.isUpdateRequest,
+      originalStartDate: originalStartDate ?? this.originalStartDate,
+      originalEndDate: originalEndDate ?? this.originalEndDate,
+      updateRequestStatus: updateRequestStatus ?? this.updateRequestStatus,
     );
   }
 
@@ -196,7 +231,8 @@ class BookingRequestModel {
   String get dateRange => '$startDate - $endDate';
   
   /// Check if booking is pending
-  bool get isPending => status?.toLowerCase() == 'pending';
+  bool get isPending => status?.toLowerCase() == 'pending' || 
+                        status?.toLowerCase() == 'pending_owner_approval';
   
   /// Check if booking is approved
   bool get isApproved => status?.toLowerCase() == 'approved';
@@ -220,10 +256,12 @@ class BookingRequestModel {
 
   // ═══════════════════════════════════════════════════════════
   // TO STRING - For debugging
+  // ✅ Enhanced with update request info
   // ═══════════════════════════════════════════════════════════
   
   @override
   String toString() {
-    return 'BookingRequestModel(id: $id, apartmentId: $apartmentId, dates: $dateRange, status: $status)';
+    final updateFlag = isUpdateRequest == true ? ' [UPDATE]' : '';
+    return 'BookingRequestModel(id: $id, apartmentId: $apartmentId, dates: $dateRange, status: $status$updateFlag)';
   }
 }

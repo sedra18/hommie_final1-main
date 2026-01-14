@@ -1,10 +1,6 @@
 import 'package:get/get.dart';
 import 'package:hommie/helpers/base_url.dart';
 
-// ═══════════════════════════════════════════════════════════
-// IMPROVED USER RESPONSE MODEL
-// With all fields needed for complete user data storage
-// ═══════════════════════════════════════════════════════════
 
 class UserResponseModel {
   final int? id;

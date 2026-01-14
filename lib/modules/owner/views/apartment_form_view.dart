@@ -84,6 +84,7 @@ class _ApartmentFormViewState extends State<ApartmentFormView> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: Icon(Icons.arrow_back),
         title: Text(
           widget.isEdit ? "Edit the apartment" : "Add info of the flat",
         ),
@@ -155,7 +156,7 @@ class _ApartmentFormViewState extends State<ApartmentFormView> {
 
                 final price = int.tryParse(priceC.text.trim()) ?? 0;
                 final rooms = int.tryParse(roomsC.text.trim()) ?? 1;
-                final size = double.tryParse(sizeC.text.trim()) ?? 0;
+                final size = int.tryParse(sizeC.text.trim()) ?? 0;
                 final gov = selectedGovernorate ?? "";
 
                 if (price <= 0) {

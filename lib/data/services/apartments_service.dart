@@ -4,31 +4,52 @@ import 'package:hommie/data/models/apartment/apartment_model.dart';
 import 'package:hommie/helpers/base_url.dart';
 import 'package:http/http.dart' as http;
 
-
+// ═══════════════════════════════════════════════════════════
+// APARTMENTS SERVICE - FIXED TO FETCH FULL DETAILS
+// ✅ Fetches list first, then gets full details with images
+// ✅ Properly constructs image URLs
+// ═══════════════════════════════════════════════════════════
 
 class ApartmentsService {
   static String baseUrl = BaseUrl.pubBaseUrl; 
   static String imageBaseUrl = BaseUrl.pubBaseUrl;
   static final box = GetStorage();
 
+  // ═══════════════════════════════════════════════════════════
+  // CLEAN IMAGE URL
+  // ═══════════════════════════════════════════════════════════
   
   static String getCleanImageUrl(String serverImagePath) {
     if (serverImagePath.isEmpty) {
       return "";
     }
-    
-    String pathWithForwardSlashes = serverImagePath.replaceAll('\\', '/');
-    String fileName = pathWithForwardSlashes.split('/').last;
-    String cleanPath = 'storage/apartments/$fileName';
-    
-    if (serverImagePath.startsWith('http') ||
-        serverImagePath.startsWith('https')) {
+
+    // If already a full URL, return as-is
+    if (serverImagePath.startsWith('http://') || 
+        serverImagePath.startsWith('https://')) {
       return serverImagePath;
     }
 
-    return '$imageBaseUrl/$cleanPath';
+    // Clean the path
+    String cleaned = serverImagePath
+        .replaceAll('"', '')           // Remove quotes
+        .replaceAll('\\', '/')         // Fix backslashes
+        .replaceAll('//', '/')         // Fix double slashes
+        .trim();
+
+    // Remove 'storage/' prefix if present
+    if (cleaned.startsWith('storage/')) {
+      cleaned = cleaned.substring(8);
+    }
+
+    // Build full URL
+    return '$imageBaseUrl/storage/apartments/$cleaned';
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // FETCH APARTMENTS - WITH FULL DETAILS
+  // ✅ Gets list first, then fetches full details for each
+  // ═══════════════════════════════════════════════════════════
   
   static Future<List<ApartmentModel>> fetchApartments() async {
     print('');
@@ -36,8 +57,9 @@ class ApartmentsService {
     print('🏠 FETCHING ALL APARTMENTS');
     
     try {
-      final url = Uri.parse("$baseUrl/api/apartments");  // ✅ Fixed: added /
-      print('   URL: $url');
+      // Step 1: Get list of apartments
+      final url = Uri.parse("$baseUrl/api/apartments");
+      print('   📋 Fetching list: $url');
       
       final response = await http.get(url);
       print('   Status: ${response.statusCode}');
@@ -50,21 +72,43 @@ class ApartmentsService {
       final paginatedData = decoded["data"];
       final List apartmentsList = paginatedData?["data"] ?? [];
       
-      print('   Found ${apartmentsList.length} apartments');
+      print('   Found ${apartmentsList.length} apartments in list');
       
-      final apartments = apartmentsList
-          .map((e) {
-            try {
-              return ApartmentModel.fromJson(e);
-            } catch (err) {
-              print('   ⚠️  Failed to parse apartment: $err');
-              return null;
-            }
-          })
-          .whereType<ApartmentModel>()
-          .toList();
+      // Step 2: Fetch full details for each apartment
+      final apartments = <ApartmentModel>[];
       
-      print('✅ Successfully parsed ${apartments.length} apartments');
+      for (var i = 0; i < apartmentsList.length; i++) {
+        try {
+          final apartmentId = apartmentsList[i]['id'];
+          print('');
+          print('   📦 Fetching details for apartment #$apartmentId...');
+          
+          // ✅ Fetch full details to get images
+          final details = await fetchApartmentDetails(apartmentId);
+          
+          if (details != null) {
+            // Fix image URLs
+            final fixedDetails = _fixImageUrls(details);
+            
+            final apartment = ApartmentModel.fromJson(fixedDetails);
+            apartments.add(apartment);
+            
+            print('      ✅ Added: ${apartment.title}');
+            print('         Main: ${apartment.mainImage.isNotEmpty ? "✅" : "❌"}');
+          } else {
+            print('      ⚠️  Could not fetch details, using list data');
+            // Fallback to list data (no images)
+            final apartment = ApartmentModel.fromJson(apartmentsList[i]);
+            apartments.add(apartment);
+          }
+          
+        } catch (err) {
+          print('      ❌ Error: $err');
+        }
+      }
+      
+      print('');
+      print('✅ Successfully loaded ${apartments.length} apartments');
       print('═══════════════════════════════════════════════════════════');
       
       return apartments;
@@ -77,38 +121,95 @@ class ApartmentsService {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // FETCH APARTMENT DETAILS
+  // FETCH APARTMENT DETAILS - Gets full data with images
   // ═══════════════════════════════════════════════════════════
   
-  static Future<Map<String, dynamic>> fetchApartmentDetails(
+  static Future<Map<String, dynamic>?> fetchApartmentDetails(
     int apartmentId,
   ) async {
-    print('🔍 Fetching apartment details: $apartmentId');
-    
     try {
       final url = Uri.parse("$baseUrl/api/apartments/$apartmentId");
-      print('   URL: $url');
       
       final response = await http.get(url);
-      print('   Status: ${response.statusCode}');
 
-      if (response.statusCode != 200) {
-        throw Exception("Failed to load apartment details: ${response.statusCode}");
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        
+        // Handle different response formats
+        if (decoded is Map) {
+          if (decoded.containsKey('data')) {
+            return decoded['data'] as Map<String, dynamic>;
+          } else if (decoded.containsKey('apartment')) {
+            return decoded['apartment'] as Map<String, dynamic>;
+          } else {
+            return decoded as Map<String, dynamic>;
+          }
+        }
       }
-
-      final decoded = jsonDecode(response.body);
-      final detailsData = decoded["data"];
       
-      if (detailsData == null) {
-        throw Exception("Apartment details data is empty");
-      }
-      
-      print('✅ Details loaded for apartment $apartmentId');
-      return detailsData;
-      
+      return null;
     } catch (e) {
-      print('❌ Error fetching details: $e');
-      rethrow;
+      print('         ❌ Details fetch error: $e');
+      return null;
     }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // FIX IMAGE URLS IN JSON
+  // ═══════════════════════════════════════════════════════════
+  
+  static Map<String, dynamic> _fixImageUrls(Map<String, dynamic> json) {
+    // Fix images array
+    List<String> fixedImagesList = [];
+    
+    if (json.containsKey('images')) {
+      final images = json['images'];
+      
+      if (images is String && images.isNotEmpty) {
+        try {
+          final imagesList = jsonDecode(images) as List;
+          fixedImagesList = imagesList
+              .map((img) => getCleanImageUrl(img.toString()))
+              .where((url) => url.isNotEmpty)
+              .toList();
+        } catch (e) {
+          // Silent
+        }
+      } else if (images is List) {
+        fixedImagesList = images
+            .map((img) => getCleanImageUrl(img.toString()))
+            .where((url) => url.isNotEmpty)
+            .toList();
+      }
+    }
+    
+    // Fix main_image
+    String? mainImageUrl;
+    
+    if (json.containsKey('main_image') && json['main_image'] != null) {
+      final mainImage = json['main_image'].toString();
+      
+      if (mainImage.isNotEmpty && mainImage != 'null') {
+        mainImageUrl = getCleanImageUrl(mainImage);
+      }
+    }
+    
+    // ✅ Use first image if main is null
+    if (mainImageUrl == null || mainImageUrl.isEmpty) {
+      if (fixedImagesList.isNotEmpty) {
+        mainImageUrl = fixedImagesList[0];
+        print('         🔧 Fixed null main_image → using first image');
+      } else {
+        mainImageUrl = '';
+      }
+    }
+    
+    json['main_image'] = mainImageUrl;
+    
+    if (fixedImagesList.isNotEmpty) {
+      json['images'] = jsonEncode(fixedImagesList);
+    }
+    
+    return json;
   }
 }

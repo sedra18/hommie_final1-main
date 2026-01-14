@@ -5,20 +5,11 @@ import 'package:hommie/data/models/apartment/apartment_model.dart';
 import 'package:hommie/data/services/token_storage_service.dart';
 import 'package:get/get.dart';
 
-// ═══════════════════════════════════════════════════════════
-// APARTMENT REPOSITORY - WITH BROWSE ALL APARTMENTS
-// ✅ Added browseAllApartments() method for public browsing
-// ✅ Handles Laravel paginated response: { data: { data: [...] } }
-// ═══════════════════════════════════════════════════════════
-
 class ApartmentRepository {
   static String _baseUrl = '${BaseUrl.pubBaseUrl}/api';
   final _tokenService = Get.put(TokenStorageService());
 
-  // ═══════════════════════════════════════════════════════════
-  // BROWSE ALL APARTMENTS (PUBLIC - NO USER FILTER)
-  // This method tries multiple endpoints to find one that returns ALL apartments
-  // ═══════════════════════════════════════════════════════════
+ 
   
   Future<List<ApartmentModel>> browseAllApartments() async {
     try {
@@ -29,11 +20,11 @@ class ApartmentRepository {
       print('🏠 BROWSING ALL APARTMENTS');
       print('──────────────────────────────────────────────────────────');
       
-      // ✅ Try different endpoints to find one that works
+      //  Try different endpoints to find one that works
       final endpoints = [
         '/apartments',
         '/apartmentsHome', 
-        '/apartments',  // Try regular endpoint without auth
+       
       ];
       
       for (var endpoint in endpoints) {
@@ -122,11 +113,7 @@ class ApartmentRepository {
     return [];
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // GET ALL APARTMENTS (Original - might be filtered by user)
-  // Use browseAllApartments() instead for public browsing
-  // ═══════════════════════════════════════════════════════════
-  
+
   Future<List<ApartmentModel>> getAllApartments() async {
     try {
       final token = await _tokenService.getAccessToken();

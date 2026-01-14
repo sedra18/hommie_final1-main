@@ -6,6 +6,7 @@ import 'package:hommie/data/services/approval_status_service.dart';
 
 // ═══════════════════════════════════════════════════════════
 // BOOKING CARD SERVICE - FIXED
+// ✅ Fixed belongsToUser method call
 // Prevents owners from booking their own apartments
 // Checks approval status before allowing bookings
 // Shows appropriate messages for different scenarios
@@ -38,8 +39,9 @@ class BookingCardService extends GetxService {
       return false;
     }
 
-    // 3. Check if user is trying to book their own apartment
-    if (apartment.belongsToUser(currentUserId)) {
+    // 3. ✅ FIXED: Check if user is trying to book their own apartment
+    // Compare userId directly instead of using belongsToUser()
+    if (apartment.userId != null && apartment.userId == currentUserId) {
       _showOwnerCannotBookSnackbar();
       return false;
     }

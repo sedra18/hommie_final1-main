@@ -8,6 +8,13 @@ import 'package:hommie/app/utils/app_colors.dart';
 import 'package:hommie/modules/shared/controllers/booking_dialog_controller.dart';
 import 'package:hommie/widgets/rating_stars_widget.dart';
 
+// ═══════════════════════════════════════════════════════════
+// APARTMENT DETAILS SCREEN - WITH ADDRESS FIELD
+// ✅ Added address display after location
+// ✅ Maintains all existing functionality
+// ✅ Same style as other fields
+// ═══════════════════════════════════════════════════════════
+
 class ApartmentDetailsScreen extends StatelessWidget {
   ApartmentDetailsScreen({super.key});
   
@@ -262,7 +269,7 @@ class ApartmentDetailsScreen extends StatelessWidget {
         body: CustomScrollView(
           slivers: [
             // ═══════════════════════════════════════════════════════════
-            // ✅ FIXED CAROUSEL SLIDER WITH DOTS INDICATOR
+            // CAROUSEL SLIDER WITH DOTS INDICATOR
             // ═══════════════════════════════════════════════════════════
             SliverAppBar(
               expandedHeight: 300, 
@@ -277,13 +284,13 @@ class ApartmentDetailsScreen extends StatelessWidget {
                 background: apartment.imageUrls.isNotEmpty
                     ? Stack(
                         children: [
-                          // ✅ CAROUSEL SLIDER
+                          // CAROUSEL SLIDER
                           CarouselSlider(
                             options: CarouselOptions(
                               height: 300,
                               viewportFraction: 1.0,
                               enlargeCenterPage: false,
-                              autoPlay: true,                    // ✅ Auto play
+                              autoPlay: true,
                               autoPlayInterval: const Duration(seconds: 4),
                               autoPlayAnimationDuration: const Duration(milliseconds: 800),
                               autoPlayCurve: Curves.fastOutSlowIn,
@@ -299,7 +306,7 @@ class ApartmentDetailsScreen extends StatelessWidget {
                                 builder: (BuildContext context) {
                                   return GestureDetector(
                                     onTap: () {
-                                      // ✅ Optional: Zoom image on tap
+                                      // Zoom image on tap
                                       showDialog(
                                         context: context,
                                         builder: (context) => Dialog(
@@ -372,7 +379,7 @@ class ApartmentDetailsScreen extends StatelessWidget {
                             }).toList(),
                           ),
                           
-                          // ✅ DOTS INDICATOR
+                          // DOTS INDICATOR
                           if (apartment.imageUrls.length > 1)
                             Positioned(
                               bottom: 20,
@@ -396,7 +403,7 @@ class ApartmentDetailsScreen extends StatelessWidget {
                               )),
                             ),
                           
-                          // ✅ IMAGE COUNTER (optional)
+                          // IMAGE COUNTER
                           if (apartment.imageUrls.length > 1)
                             Positioned(
                               top: 20,
@@ -436,6 +443,7 @@ class ApartmentDetailsScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Title
                       Text(
                         apartment.title, 
                         style: const TextStyle(
@@ -444,24 +452,77 @@ class ApartmentDetailsScreen extends StatelessWidget {
                             color: AppColors.textPrimaryLight),
                       ),
                       const SizedBox(height: 8),
+                      
+                      // Location (Governorate, City)
                       Row(
                         children: [
                           const Icon(Icons.location_on, color: AppColors.primary),
                           const SizedBox(width: 5),
-                          Text('${apartment.governorate}, ${apartment.city}',
-                              style: const TextStyle(
-                                  fontSize: 16, color: AppColors.textSecondaryLight)),
+                          Text(
+                            '${apartment.governorate}, ${apartment.city}',
+                            style: const TextStyle(
+                                fontSize: 16, color: AppColors.textSecondaryLight),
+                          ),
                         ],
                       ),
+                      
+                      // ✅ ADDRESS FIELD ADDED HERE
+                      if (apartment.address != null && apartment.address!.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(
+                              Icons.home_outlined, 
+                              color: AppColors.primary,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 5),
+                            Expanded(
+                              child: Text(
+                                apartment.address!,
+                                style: const TextStyle(
+                                  fontSize: 15, 
+                                  color: AppColors.textSecondaryLight,
+                                  height: 1.3,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      
                       const SizedBox(height: 10),
+                      
+                      // Price
                       Text(
                         'Price per Day: \$${apartment.pricePerDay.toStringAsFixed(0)}',
                         style: const TextStyle(
                             fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primary),
                       ),
                       const SizedBox(height: 10),
-                      RatingStarsWidget(rating: apartment.avgRating),
+                      
+                      // Rating
+                      Row(
+                        children: [
+                          RatingStarsWidget(
+                            rating: apartment.avgRating,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '(${apartment.avgRating.toStringAsFixed(1)})',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: AppColors.textSecondaryLight,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
                       const SizedBox(height: 15),
+                      
+                      // Owner Info
                       if (apartment.ownerName != null) ...[
                         Row(
                           children: [
@@ -477,6 +538,8 @@ class ApartmentDetailsScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 15),
                       ],
+                      
+                      // Key Details Section
                       const Text(
                         'Key Details',
                         style: TextStyle(
@@ -497,6 +560,8 @@ class ApartmentDetailsScreen extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 20),
+                      
+                      // Description Section
                       const Text(
                         'Description',
                         style: TextStyle(

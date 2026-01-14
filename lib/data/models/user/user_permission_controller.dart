@@ -3,12 +3,7 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:hommie/app/utils/app_colors.dart';
 
-// ═══════════════════════════════════════════════════════════
-// USER PERMISSIONS CONTROLLER - FIXED
-// ✅ Owners can book apartments (just not their own)
-// ✅ Renters can book apartments
-// ✅ Only owners can post apartments
-// ═══════════════════════════════════════════════════════════
+
 
 class UserPermissionsController extends GetxController {
   final box = GetStorage();
@@ -22,7 +17,7 @@ class UserPermissionsController extends GetxController {
     super.onInit();
     print('');
     print('═══════════════════════════════════════════════════════════');
-    print('🔐 [UserPermissions] Controller Initialized');
+    print(' [UserPermissions] Controller Initialized');
     print('═══════════════════════════════════════════════════════════');
     
     loadApprovalStatus();
@@ -50,16 +45,15 @@ class UserPermissionsController extends GetxController {
     box.write('role', role);
 
     print('');
-    print('✅ [UserPermissions] Status Updated:');
+    print(' [UserPermissions] Status Updated:');
     print('   Is Approved: $approved');
     print('   Role: $role');
     print('   Can Book: $canBook');
     print('   Can Post: $canPostApartments');
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // ✅ FIXED: Both owners and renters can book apartments
-  // ═══════════════════════════════════════════════════════════
+  //  FIXED: Both owners and renters can book apartments
+
   bool get canBook {
     // Anyone who is approved can book (owners OR renters)
     final can = isApproved.value && (userRole.value == 'renter' || userRole.value == 'owner');
@@ -90,7 +84,7 @@ class UserPermissionsController extends GetxController {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // ✅ UPDATED: Check if user can book a specific apartment
+  //  UPDATED: Check if user can book a specific apartment
   // Prevents owners from booking their own apartments
   // ═══════════════════════════════════════════════════════════
   bool canBookApartment(int? apartmentOwnerId) {
@@ -110,7 +104,7 @@ class UserPermissionsController extends GetxController {
     
     // Can't book your own apartment
     if (apartmentOwnerId == currentUserId) {
-      print('🚫 Cannot book own apartment');
+      print(' Cannot book own apartment');
       return false;
     }
     
@@ -125,7 +119,7 @@ class UserPermissionsController extends GetxController {
 
     switch (action.toLowerCase()) {
       case 'book':
-        // ✅ FIXED: Check if user can book this specific apartment
+        // Check if user can book this specific apartment
         if (apartmentOwnerId != null) {
           hasPermission = canBookApartment(apartmentOwnerId);
           

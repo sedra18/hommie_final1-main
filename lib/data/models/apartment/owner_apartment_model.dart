@@ -32,7 +32,7 @@ class OwnerApartmentModel {
   // ═══════════════════════════════════════════════════════════
   factory OwnerApartmentModel.fromJson(Map<String, dynamic> json) {
     try {
-      // ✅ Helper to convert to double (handles both String and num)
+      // Helper to convert to double (handles both String and num)
       double toDouble(dynamic value) {
         if (value == null) return 0.0;
         if (value is double) return value;
@@ -41,7 +41,7 @@ class OwnerApartmentModel {
         return 0.0;
       }
 
-      // ✅ Helper to convert to int (handles both String and num)
+      //  Helper to convert to int (handles both String and num)
       int toInt(dynamic value) {
         if (value == null) return 0;
         if (value is int) return value;
@@ -50,13 +50,13 @@ class OwnerApartmentModel {
         return 0;
       }
 
-      // ✅ Helper to convert to String
+      //  Helper to convert to String
       String toString(dynamic value) {
         if (value == null) return '';
         return value.toString();
       }
 
-      // ✅ Parse images array
+      //  Parse images array
       List<String> parseImages(dynamic imagesValue) {
         if (imagesValue == null) return [];
         
@@ -90,9 +90,9 @@ class OwnerApartmentModel {
         governorate: toString(json['governorate']),
         city: toString(json['city']),
         address: toString(json['address']),
-        pricePerDay: toDouble(json['price_per_day']),      // ✅ Flexible
-        roomsCount: toInt(json['rooms_count']),            // ✅ Flexible
-        apartmentSize: toDouble(json['apartment_size']),   // ✅ Flexible
+        pricePerDay: toDouble(json['price_per_day']),     
+        roomsCount: toInt(json['rooms_count']),           
+        apartmentSize: toDouble(json['apartment_size']),   
         images: parseImages(json['images']),
         mainImage: json['main_image']?.toString(),
       );
@@ -105,9 +105,7 @@ class OwnerApartmentModel {
     }
   }
 
-  // ═══════════════════════════════════════════════════════════
   // TO JSON
-  // ═══════════════════════════════════════════════════════════
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -124,9 +122,8 @@ class OwnerApartmentModel {
     };
   }
 
-  // ═══════════════════════════════════════════════════════════
   // COPY WITH
-  // ═══════════════════════════════════════════════════════════
+
   OwnerApartmentModel copyWith({
     String? id,
     String? title,

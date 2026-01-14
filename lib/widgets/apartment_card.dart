@@ -64,9 +64,7 @@ class UnifiedApartmentCard extends StatelessWidget {
             // ═══════════════════════════════════════════════════
             Stack(
               children: [
-                _buildImageSection(
-                  
-                ),
+                _buildImageSection(),
 
                 // "My Apartment" Badge (top-left)
                 if (isMyApartment)
@@ -424,7 +422,9 @@ class UnifiedApartmentCard extends StatelessWidget {
 
               try {
                 final controller = Get.put(OwnerHomeController());
-                await controller.deleteApartment(apartment.id);
+
+                controller.deleteApartment(apartment.id);
+
                 Get.back();
               } catch (e) {
                 Get.back();

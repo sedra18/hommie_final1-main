@@ -6,9 +6,10 @@ import 'package:hommie/data/services/approval_status_service.dart';
 import 'package:hommie/modules/renter/views/apartment_details_screen.dart';
 
 // ═══════════════════════════════════════════════════════════
-// OWNER HOME CONTROLLER - FIXED
+// OWNER HOME CONTROLLER - ENHANCED WITH FILTERS
 // ✅ Uses browseAllApartments() to see ALL apartments
 // ✅ With delete functionality
+// ✅ Filter support (same as Renter)
 // ═══════════════════════════════════════════════════════════
 
 class OwnerHomeController extends GetxController {
@@ -18,6 +19,10 @@ class OwnerHomeController extends GetxController {
   final apartments = <ApartmentModel>[].obs;
   final isLoading = false.obs;
   final isApproved = true.obs;
+  
+  // ✅ NEW: Filter observables
+  final appliedFilters = Rx<Map<String, dynamic>?>(null);
+  final searchQuery = ''.obs;
 
   @override
   void onInit() {
@@ -105,6 +110,163 @@ class OwnerHomeController extends GetxController {
     } finally {
       isLoading.value = false;
     }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // APPLY FILTERS
+  // ✅ NEW: Apply filter criteria
+  // ═══════════════════════════════════════════════════════════
+
+  void applyFilters(Map<String, dynamic>? filters) {
+    appliedFilters.value = filters;
+    print('🔍 [OWNER] Filters applied: $filters');
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // SET SEARCH QUERY
+  // ✅ NEW: Update search query
+  // ═══════════════════════════════════════════════════════════
+
+  void setSearchQuery(String query) {
+    searchQuery.value = query;
+    print('🔍 [OWNER] Search query: $query');
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // CLEAR ALL FILTERS
+  // ✅ NEW: Clear both filters and search
+  // ═══════════════════════════════════════════════════════════
+
+  void clearAllFilters() {
+    appliedFilters.value = null;
+    searchQuery.value = '';
+    print('🗑️ [OWNER] All filters and search cleared');
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // GET ACTIVE FILTERS COUNT
+  // ✅ NEW: Count active filters
+  // ═══════════════════════════════════════════════════════════
+
+  int getActiveFiltersCount() {
+    if (appliedFilters.value == null) return 0;
+
+    int count = 0;
+    final filters = appliedFilters.value!;
+
+    if (filters['city'] != null && (filters['city'] as String).isNotEmpty) {
+      count++;
+    }
+    if (filters['governorate'] != null && 
+        (filters['governorate'] as String).isNotEmpty) {
+      count++;
+    }
+    if (filters['address'] != null && 
+        (filters['address'] as String).isNotEmpty) {
+      count++;
+    }
+    if (filters['minPrice'] != null || filters['maxPrice'] != null) {
+      count++;
+    }
+    if (filters['minRooms'] != null || filters['maxRooms'] != null) {
+      count++;
+    }
+    if (filters['minSize'] != null || filters['maxSize'] != null) {
+      count++;
+    }
+
+    return count;
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // FILTER APARTMENTS
+  // ✅ NEW: Apply search and filter logic
+  // ═══════════════════════════════════════════════════════════
+
+  List<ApartmentModel> filterApartments(List<ApartmentModel> apartmentsList) {
+    return apartmentsList.where((apartment) {
+      // Search filter
+      if (searchQuery.value.isNotEmpty) {
+        final query = searchQuery.value.toLowerCase();
+        final title = apartment.title.toLowerCase();
+        final city = apartment.city.toLowerCase();
+        final governorate = apartment.governorate.toLowerCase();
+
+        final matchesSearch = title.contains(query) ||
+            city.contains(query) ||
+            governorate.contains(query);
+
+        if (!matchesSearch) return false;
+      }
+
+      // Location filters
+      if (appliedFilters.value != null) {
+        final filters = appliedFilters.value!;
+
+        // City filter
+        if (filters['city'] != null && 
+            (filters['city'] as String).isNotEmpty) {
+          final filterCity = (filters['city'] as String).toLowerCase();
+          if (!apartment.city.toLowerCase().contains(filterCity)) {
+            return false;
+          }
+        }
+
+        // Governorate filter
+        if (filters['governorate'] != null &&
+            (filters['governorate'] as String).isNotEmpty) {
+          final filterGov = (filters['governorate'] as String).toLowerCase();
+          if (!apartment.governorate.toLowerCase().contains(filterGov)) {
+            return false;
+          }
+        }
+
+        // Address filter
+        if (filters['address'] != null &&
+            (filters['address'] as String).isNotEmpty) {
+          final filterAddress = (filters['address'] as String).toLowerCase();
+          final aptAddress = apartment.address?.toLowerCase() ?? '';
+          if (!aptAddress.contains(filterAddress)) {
+            return false;
+          }
+        }
+
+        // Price filter
+        final minPrice = filters['minPrice'] as double?;
+        final maxPrice = filters['maxPrice'] as double?;
+
+        if (minPrice != null && apartment.pricePerDay < minPrice) {
+          return false;
+        }
+        if (maxPrice != null && apartment.pricePerDay > maxPrice) {
+          return false;
+        }
+
+        // Rooms filter
+        final minRooms = filters['minRooms'] as int?;
+        final maxRooms = filters['maxRooms'] as int?;
+
+        if (minRooms != null && apartment.roomsCount < minRooms) {
+          return false;
+        }
+        if (maxRooms != null && apartment.roomsCount > maxRooms) {
+          return false;
+        }
+
+        // Size filter
+        final minSize = filters['minSize'] as double?;
+        final maxSize = filters['maxSize'] as double?;
+
+        if (minSize != null && apartment.apartmentSize < minSize) {
+          return false;
+        }
+        if (maxSize != null && apartment.apartmentSize > maxSize) {
+          return false;
+        }
+      }
+
+      return true;
+    }).toList();
   }
 
   // ═══════════════════════════════════════════════════════════

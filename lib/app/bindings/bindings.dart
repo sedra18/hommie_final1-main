@@ -15,43 +15,43 @@ class InitialBinding extends Bindings {
   void dependencies() {
     print('');
     print('═══════════════════════════════════════════════════════════');
-    print('🔧 INITIALIZING DEPENDENCIES');
+    print(' INITIALIZING DEPENDENCIES');
     print('──────────────────────────────────────────────────────────');
 
     // Auth Service (must be first)
     if (!Get.isRegistered<AuthService>()) {
       Get.put(AuthService(), permanent: true);
-      print('✅ AuthService');
+      print(' AuthService');
     }
 
     Get.lazyPut(() => TokenStorageService());
-    print('✅ TokenStorageService');
+    print(' TokenStorageService');
 
     Get.lazyPut(() => BookingService());
-    print('✅ BookingService');
+    print(' BookingService');
 
     Get.put(ApprovalStatusService());
-    print('✅ ApprovalStatusService');
+    print(' ApprovalStatusService');
 
     final apartmentApi = ApartmentApi();
     Get.put(apartmentApi);
-    print('✅ ApartmentApi');
+    print(' ApartmentApi');
 
     final apartmentRepo = ApartmentRepository();
     Get.put(apartmentRepo);
-    print('✅ ApartmentRepository');
+    print(' ApartmentRepository');
 
     Get.lazyPut(() => PostAdController());
-    print('✅ PostAdController');
+    print(' PostAdController');
 
     Get.lazyPut(() => NavController());
-    print('✅ NavController');
+    print(' NavController');
 
     Get.lazyPut(() => RenterHomeController());
-    print('✅ HomeController');
+    print(' HomeController');
 
     Get.lazyPut<ReviewController>(() => ReviewController());
-    print('✅ ReviewController');
+    print(' ReviewController');
     print('═══════════════════════════════════════════════════════════');
   }
 }

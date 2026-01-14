@@ -5,14 +5,53 @@ import 'package:hommie/helpers/base_url.dart';
 import 'package:hommie/data/services/token_storage_service.dart';
 import 'package:http/http.dart' as http;
 
+// ═══════════════════════════════════════════════════════════
+// ENHANCED BOOKING SERVICE
+// ✅ Unified booking operations for both owners and renters
+// ✅ Integrated image path handling
+// ✅ Complete CRUD operations for bookings
+// ✅ Review and rating system
+// ═══════════════════════════════════════════════════════════
+
 class BookingService extends GetxService {
   final String baseUrl = '${BaseUrl.pubBaseUrl}/api';
+  static String imageBaseUrl = BaseUrl.pubBaseUrl;
   final TokenStorageService _tokenService = Get.find<TokenStorageService>();
+
+  // ═══════════════════════════════════════════════════════════
+  // IMAGE PATH HELPER
+  // ✅ Cleans and constructs proper image URLs
+  // ✅ Handles both absolute and relative paths
+  // ═══════════════════════════════════════════════════════════
+  
+  static String getCleanImageUrl(String serverImagePath) {
+    if (serverImagePath.isEmpty) {
+      return "";
+    }
+
+    // Replace backslashes with forward slashes
+    String pathWithForwardSlashes = serverImagePath.replaceAll('\\', '/');
+    
+    // Extract filename
+    String fileName = pathWithForwardSlashes.split('/').last;
+    
+    // Construct clean path
+    String cleanPath = 'storage/apartments/$fileName';
+    
+    // If already absolute URL, return as is (with clean path)
+    if (serverImagePath.startsWith('http') || serverImagePath.startsWith('https')) {
+      return '$imageBaseUrl/$cleanPath';
+    }
+    
+    // Otherwise, prepend base URL
+    return '$imageBaseUrl/$cleanPath';
+  }
 
   // ═══════════════════════════════════════════════════════════
   // GET MY BOOKINGS - UNIFIED FOR BOTH OWNER AND RENTER
   // ✅ Backend determines if you're owner or renter based on token
   // ✅ API: GET /api/bookings?status=past (optional)
+  // ✅ Processes apartment images using getCleanImageUrl
   // 
   // How it works:
   // - For OWNER (token belongs to owner user):
@@ -64,11 +103,20 @@ class BookingService extends GetxService {
 
         print('✅ Found ${bookingsArray.length} bookings');
 
-        // ✅ DO NOT map status - preserve original from backend
-        // Backend sends correct status for both owner and renter
-        final bookings = bookingsArray
-            .map((json) => BookingRequestModel.fromJson(json as Map<String, dynamic>))
-            .toList();
+        // Process bookings and clean image URLs
+        final bookings = bookingsArray.map((json) {
+          final bookingJson = json as Map<String, dynamic>;
+          
+          // Clean apartment image URL if present
+          if (bookingJson.containsKey('apartment_image') && 
+              bookingJson['apartment_image'] != null) {
+            bookingJson['apartment_image'] = getCleanImageUrl(
+              bookingJson['apartment_image'].toString()
+            );
+          }
+          
+          return BookingRequestModel.fromJson(bookingJson);
+        }).toList();
 
         _printStatusBreakdown(bookings);
         print('═══════════════════════════════════════════════════════════');
@@ -109,6 +157,7 @@ class BookingService extends GetxService {
   // CREATE BOOKING
   // ✅ API: POST /api/bookings/create
   // ✅ Returns Map<String, dynamic> with success/error
+  // ✅ Processes returned apartment images
   // ═══════════════════════════════════════════════════════════
 
   Future<Map<String, dynamic>> createBooking({
@@ -154,7 +203,14 @@ class BookingService extends GetxService {
         print('✅ Booking created successfully');
         print('═══════════════════════════════════════════════════════════');
 
-        return {'success': true, 'data': json.decode(response.body)};
+        final responseData = json.decode(response.body);
+        
+        // Clean image URLs in response data
+        if (responseData is Map<String, dynamic>) {
+          _cleanImageUrlsInData(responseData);
+        }
+
+        return {'success': true, 'data': responseData};
       } else {
         print('❌ Failed to create booking');
         print('Response: ${response.body}');
@@ -383,7 +439,7 @@ class BookingService extends GetxService {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // MARK BOOKING AS COMPLETED (NEW!)
+  // MARK BOOKING AS COMPLETED
   // ✅ API: POST /api/bookings/{id}/complete
   // ✅ Marks approved booking as completed in backend
   // ✅ Call this BEFORE addReview() to make backend accept review
@@ -425,13 +481,11 @@ class BookingService extends GetxService {
       print('═══════════════════════════════════════════════════════════');
 
       // Return true even if endpoint doesn't exist (404)
-      // The review might still work if backend checks date
       return true;
     } catch (e) {
       print('⚠️  Error marking booking as completed: $e');
       print('   Proceeding with review anyway...');
       print('═══════════════════════════════════════════════════════════');
-      // Don't fail - just proceed with review
       return true;
     }
   }
@@ -440,6 +494,7 @@ class BookingService extends GetxService {
   // GET PENDING REVIEWS
   // ✅ API: GET /api/bookings/pending-review
   // ✅ Returns bookings that are completed and haven't been reviewed yet
+  // ✅ Cleans image URLs in response
   // ═══════════════════════════════════════════════════════════
 
   Future<List<BookingRequestModel>> getPendingReviews() async {
@@ -474,9 +529,20 @@ class BookingService extends GetxService {
 
         print('✅ Found ${bookingsArray.length} bookings pending review');
 
-        final bookings = bookingsArray
-            .map((json) => BookingRequestModel.fromJson(json as Map<String, dynamic>))
-            .toList();
+        // Process bookings and clean image URLs
+        final bookings = bookingsArray.map((json) {
+          final bookingJson = json as Map<String, dynamic>;
+          
+          // Clean apartment image URL if present
+          if (bookingJson.containsKey('apartment_image') && 
+              bookingJson['apartment_image'] != null) {
+            bookingJson['apartment_image'] = getCleanImageUrl(
+              bookingJson['apartment_image'].toString()
+            );
+          }
+          
+          return BookingRequestModel.fromJson(bookingJson);
+        }).toList();
 
         print('═══════════════════════════════════════════════════════════');
 
@@ -496,12 +562,12 @@ class BookingService extends GetxService {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // ADD REVIEW (UPDATED!)
+  // ADD REVIEW
   // ✅ API: POST /api/bookings/{id}/review
   // ✅ Adds a review/rating for a completed booking
-  // ✅ NOW: Tries to mark booking as completed first
   // ═══════════════════════════════════════════════════════════
-Future<Map<String, dynamic>> addReview({
+  
+  Future<Map<String, dynamic>> addReview({
     required int bookingId,
     required int rating,
     String? comment,
@@ -543,7 +609,14 @@ Future<Map<String, dynamic>> addReview({
         print('✅ Review added successfully');
         print('═══════════════════════════════════════════════════════════');
 
-        return {'success': true, 'data': json.decode(response.body)};
+        final responseData = json.decode(response.body);
+        
+        // Clean image URLs in response data
+        if (responseData is Map<String, dynamic>) {
+          _cleanImageUrlsInData(responseData);
+        }
+
+        return {'success': true, 'data': responseData};
       } else {
         print('❌ Failed to add review');
         print('Response: ${response.body}');
@@ -566,10 +639,12 @@ Future<Map<String, dynamic>> addReview({
       return {'success': false, 'error': 'An error occurred: ${e.toString()}'};
     }
   }
+
   // ═══════════════════════════════════════════════════════════
   // HELPER METHODS
   // ═══════════════════════════════════════════════════════════
 
+  /// Extracts bookings array from various response formats
   List<dynamic> _extractBookingsArray(dynamic data) {
     if (data is Map<String, dynamic>) {
       // Paginated: { "data": { "data": [...] } }
@@ -602,6 +677,7 @@ Future<Map<String, dynamic>> addReview({
     return [];
   }
 
+  /// Prints status breakdown for debugging
   void _printStatusBreakdown(List<BookingRequestModel> bookings) {
     print('');
     print('   📊 STATUS BREAKDOWN:');
@@ -618,5 +694,38 @@ Future<Map<String, dynamic>> addReview({
         print('      • $status: $count');
       });
     }
+  }
+
+  /// Recursively cleans image URLs in response data
+  void _cleanImageUrlsInData(Map<String, dynamic> data) {
+    // List of keys that typically contain image paths
+    final imageKeys = [
+      'apartment_image',
+      'main_image',
+      'image',
+      'image_url',
+      'apartment_main_image',
+    ];
+
+    data.forEach((key, value) {
+      if (imageKeys.contains(key) && value != null && value is String) {
+        // Clean the image URL
+        data[key] = getCleanImageUrl(value);
+      } else if (value is Map<String, dynamic>) {
+        // Recursively clean nested objects
+        _cleanImageUrlsInData(value);
+      } else if (value is List) {
+        // Clean images in arrays
+        for (var i = 0; i < value.length; i++) {
+          if (value[i] is Map<String, dynamic>) {
+            _cleanImageUrlsInData(value[i]);
+          } else if (value[i] is String && 
+                     (key.toLowerCase().contains('image') || 
+                      key.toLowerCase().contains('photo'))) {
+            value[i] = getCleanImageUrl(value[i]);
+          }
+        }
+      }
+    });
   }
 }
