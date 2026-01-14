@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:hommie/data/services/apartments_service.dart';
+import 'package:hommie/helpers/base_url.dart';
 
 // ═══════════════════════════════════════════════════════════
 // APARTMENT MODEL - COMBINED VERSION
@@ -52,29 +53,55 @@ class ApartmentModel {
   // ✅ Parses userId for owner identification
   // ═══════════════════════════════════════════════════════════
 
-  factory ApartmentModel.fromJson(Map<String, dynamic> json) {
-    final rawMainImage = json["main_image"] ?? "";
-    
-    // ✅ Clean the main image URL
-    final fullImageUrl = rawMainImage.isNotEmpty && rawMainImage != 'null'
-        ? ApartmentsService.getCleanImageUrl(rawMainImage)
-        : "";
-
-    return ApartmentModel(
-      id: json["id"] ?? 0,
-      userId: json["user_id"] as int?,  // Parse user_id from backend
-      title: json["title"] ?? "",
-      governorate: json["governorate"] ?? "",
-      city: json["city"] ?? "",
-      address: json["address"] ?? "",
-      mainImage: fullImageUrl,
-      // ✅ Handle both int and double for prices
-      pricePerDay: _toInt(json["price_per_day"]),
-      roomsCount: _toInt(json["rooms_count"]),
-      apartmentSize: _toInt(json["apartment_size"]),
-      avgRating: _toDouble(json["avg_rating"]),
-    );
+ factory ApartmentModel.fromJson(Map<String, dynamic> json) {
+  final rawMainImage = json["main_image"] ?? "";
+  
+  // ✅ FIXED: Better URL cleaning
+  String fullImageUrl = "";
+  if (rawMainImage.isNotEmpty && rawMainImage != 'null') {
+    try {
+      // Handle different possible formats
+      String cleanedPath = rawMainImage.toString()
+          .replaceAll('"', '')
+          .replaceAll('\\', '/')
+          .trim();
+      
+      // If it's already a full URL, use it
+      if (cleanedPath.startsWith('http://') || cleanedPath.startsWith('https://')) {
+        fullImageUrl = cleanedPath;
+      } else {
+        // Remove 'storage/' prefix if present
+        if (cleanedPath.startsWith('storage/')) {
+          cleanedPath = cleanedPath.substring(8);
+        }
+        
+        // Ensure we have a proper path
+        cleanedPath = cleanedPath.startsWith('apartments/') 
+            ? cleanedPath 
+            : 'apartments/$cleanedPath';
+        
+        fullImageUrl = '${BaseUrl.pubBaseUrl}/storage/$cleanedPath';
+      }
+    } catch (e) {
+      print('⚠️ Error parsing main_image: $e, value: $rawMainImage');
+      fullImageUrl = "";
+    }
   }
+
+  return ApartmentModel(
+    id: json["id"] ?? 0,
+    userId: json["user_id"] as int?,
+    title: json["title"] ?? "",
+    governorate: json["governorate"] ?? "",
+    city: json["city"] ?? "",
+    address: json["address"] ?? "",
+    mainImage: fullImageUrl, // ✅ Use cleaned URL
+    pricePerDay: _toInt(json["price_per_day"]),
+    roomsCount: _toInt(json["rooms_count"]),
+    apartmentSize: _toInt(json["apartment_size"]),
+    avgRating: _toDouble(json["avg_rating"]),
+  );
+}
 
   // ═══════════════════════════════════════════════════════════
   // HELPER CONVERTERS - Handle both String and num

@@ -9,10 +9,10 @@ import 'package:hommie/helpers/base_url.dart';
 import 'package:http/http.dart' as http;
 
 // ═══════════════════════════════════════════════════════════
-// POST AD CONTROLLER - WITH PAGINATION
-// ✅ Loads 10 apartments at a time
-// ✅ Fetches more when scrolling
-// ✅ Handles paginated response
+// POST AD CONTROLLER - ULTIMATE FIX
+// ✅ Fixes quotes and backslashes in URLs
+// ✅ Handles null main_image by using first image
+// ✅ First image is always main image
 // ═══════════════════════════════════════════════════════════
 
 class PostAdController extends GetxController {
@@ -21,12 +21,6 @@ class PostAdController extends GetxController {
 
   final myApartments = <ApartmentModel>[].obs;
   final isLoading = false.obs;
-  final isLoadingMore = false.obs;
-  
-  // Pagination state
-  int currentPage = 1;
-  int lastPage = 1;
-  bool hasMorePages = false;
 
   ApartmentModel? draft;
   List<String> draftImages = [];
@@ -61,8 +55,12 @@ class PostAdController extends GetxController {
     print('💾 SAVING DRAFT BASIC INFO');
     print('──────────────────────────────────────────────────────────');
     print('   Title: $title');
-    print('   Governorate: $governorate');
-    print('   City: $city');
+    print('   governorate: $governorate');
+    print('   city: $city');
+    print('   address: $address');
+    print('   price_per_day: $pricePerDay');
+    print('   rooms_count: $roomsCount');
+    print('   apartment_size: $apartmentSize');
     print('═══════════════════════════════════════════════════════════');
 
     draft = ApartmentModel(
@@ -87,13 +85,15 @@ class PostAdController extends GetxController {
 
   // ═══════════════════════════════════════════════════════════
   // SAVE DRAFT IMAGES
+  // ✅ Main image is ALWAYS FIRST
   // ═══════════════════════════════════════════════════════════
 
   Future<void> saveDraftImages(List<String> imagePaths, {int mainIndex = 0}) async {
     print('');
     print('═══════════════════════════════════════════════════════════');
     print('💾 SAVING DRAFT IMAGES');
-    print('   Total: ${imagePaths.length}, Main index: $mainIndex');
+    print('   Total images: ${imagePaths.length}');
+    print('   Main image index: $mainIndex');
     print('──────────────────────────────────────────────────────────');
 
     final validImages = <String>[];
@@ -103,87 +103,89 @@ class PostAdController extends GetxController {
       final isMain = (i == mainIndex);
       
       print('   Image ${i + 1}:${isMain ? " ⭐ MAIN" : ""}');
+      print('      Path: $path');
       
       try {
         final file = File(path);
+        final exists = await file.exists();
         
-        if (!await file.exists()) {
-          print('      ❌ Not found');
+        if (!exists) {
+          print('      ❌ File does not exist - SKIPPED');
           continue;
         }
         
         final size = await file.length();
-        print('      ✅ ${(size / 1024).toStringAsFixed(2)} KB');
+        print('      Size: ${(size / 1024).toStringAsFixed(2)} KB');
         
         if (size == 0) {
-          print('      ❌ Empty');
+          print('      ❌ Empty file - SKIPPED');
           continue;
         }
         
         validImages.add(path);
+        print('      ✅ Valid');
         
       } catch (e) {
-        print('      ❌ Error: $e');
+        print('      ❌ Error: $e - SKIPPED');
       }
     }
 
     if (validImages.isEmpty) {
-      throw Exception('No valid images');
+      print('');
+      print('❌ NO VALID IMAGES FOUND');
+      print('═══════════════════════════════════════════════════════════');
+      throw Exception('No valid images found');
     }
 
-    // Move main image to front
+    // ✅ Move main image to front
     final adjustedMainIndex = mainIndex.clamp(0, validImages.length - 1);
     
     if (adjustedMainIndex != 0) {
       final mainImagePath = validImages.removeAt(adjustedMainIndex);
       validImages.insert(0, mainImagePath);
-      print('   🔄 Main moved to front');
+      print('   🔄 Reordered: Main image moved to position 0');
     }
 
     draftImages = validImages;
 
     print('');
-    print('📊 SUMMARY: ${validImages.length} images, first is main');
-    print('✅ Saved');
+    print('📊 SUMMARY:');
+    print('   Valid images: ${validImages.length}');
+    print('   ⭐ MAIN IMAGE: ${validImages[0]}');
+    print('✅ Draft images saved');
     print('═══════════════════════════════════════════════════════════');
   }
 
   // ═══════════════════════════════════════════════════════════
-  // FETCH MY APARTMENTS - WITH PAGINATION
-  // ✅ Loads first page (page 1)
+  // FETCH MY APARTMENTS
   // ═══════════════════════════════════════════════════════════
 
-  Future<void> fetchMyApartments({bool refresh = false}) async {
-    if (refresh) {
-      currentPage = 1;
-      myApartments.clear();
-    }
-    
+  Future<void> fetchMyApartments() async {
     try {
       isLoading.value = true;
 
       print('');
       print('═══════════════════════════════════════════════════════════');
-      print('📥 FETCHING MY APARTMENTS (Page $currentPage)');
+      print('📥 FETCHING MY APARTMENTS');
       print('═══════════════════════════════════════════════════════════');
 
       final token = await _tokenService.getAccessToken();
 
       if (token == null) {
-        print('⚠️  No token');
+        print('⚠️  No access token found');
         return;
       }
       
       final currentUserId = await _tokenService.getUserId();
       
       if (currentUserId == null) {
-        print('⚠️  No user ID');
+        print('⚠️  No user ID found');
         return;
       }
       
-      print('   User ID: $currentUserId');
+      print('   Current User ID: $currentUserId');
 
-      final url = '${BaseUrl.pubBaseUrl}/api/owner/apartments?page=$currentPage';
+      final url = '${BaseUrl.pubBaseUrl}/api/owner/apartments';
       print('   URL: $url');
 
       final response = await http.get(
@@ -199,62 +201,57 @@ class PostAdController extends GetxController {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
 
-        // ✅ Extract pagination info
-        final paginationInfo = _extractPaginationInfo(data);
-        currentPage = paginationInfo['currentPage'] ?? 1;
-        lastPage = paginationInfo['lastPage'] ?? 1;
-        hasMorePages = currentPage < lastPage;
-        
-        print('   📄 Pagination: Page $currentPage of $lastPage');
-        print('   📄 Has more: $hasMorePages');
+        List<dynamic> apartmentsJson;
 
-        // ✅ Handle paginated response
-        List<dynamic> apartmentsJson = _parsePaginatedResponse(data);
+        if (data is List) {
+          apartmentsJson = data;
+        } else if (data is Map && data.containsKey('data')) {
+          final dataValue = data['data'];
+          if (dataValue is List) {
+            apartmentsJson = dataValue;
+          } else if (dataValue is Map && dataValue.containsKey('data')) {
+            apartmentsJson = dataValue['data'] as List;
+          } else {
+            apartmentsJson = [];
+          }
+        } else {
+          apartmentsJson = [];
+        }
 
-        print('   Total from API: ${apartmentsJson.length}');
+        print('   Total apartments from API: ${apartmentsJson.length}');
 
         final apartments = <ApartmentModel>[];
 
         for (var json in apartmentsJson) {
           try {
-            final apartmentId = json['id'];
+            // ✅ Fix URLs BEFORE parsing
+            final fixedJson = _fixImageUrls(json);
             
-            print('');
-            print('   📦 Fetching details for #$apartmentId...');
+            final apartment = ApartmentModel.fromJson(fixedJson);
             
-            final detailsJson = await _fetchApartmentDetails(apartmentId, token);
+            // ✅ Check both user_id and owner_id
+            final apartmentUserId = apartment.userId ?? json['owner_id'];
             
-            if (detailsJson != null) {
-              final fixedJson = _fixImageUrls(detailsJson);
-              final apartment = ApartmentModel.fromJson(fixedJson);
-              
-              final apartmentUserId = apartment.userId ?? detailsJson['owner_id'] ?? detailsJson['user_id'];
-              
-              if (apartmentUserId == currentUserId) {
-                apartments.add(apartment);
-                print('      ✅ Added: ${apartment.title}');
-                print('         Main: ${apartment.mainImage.isNotEmpty ? "✅" : "❌"}');
-                print('         Images: ${apartment.imageUrls.length}');
-              } else {
-                print('      ⏭️  Not yours');
-              }
+            if (apartmentUserId == currentUserId) {
+              apartments.add(apartment);
+              print('      ✅ Added: ${apartment.title}');
+              print('         User ID: $apartmentUserId (matches)');
+              print('         Main Image: ${apartment.mainImage}');
             } else {
-              print('      ❌ Could not fetch details');
+              print('      ⏭️  Skipped: ${apartment.title}');
+              print('         User ID: $apartmentUserId (doesn\'t match $currentUserId)');
             }
-            
-          } catch (e) {
-            print('      ❌ Error: $e');
+          } catch (e, stackTrace) {
+            print('      ❌ Error parsing: $e');
           }
         }
 
-        myApartments.addAll(apartments);
+        myApartments.value = apartments;
         
         print('');
         print('📊 RESULTS:');
-        print('   This page: ${apartments.length}');
-        print('   Total loaded: ${myApartments.length}');
-        print('   More pages: ${hasMorePages ? "Yes" : "No"}');
-        print('✅ Done');
+        print('   My apartments: ${apartments.length}');
+        print('✅ Loaded successfully');
         print('═══════════════════════════════════════════════════════════');
       } else {
         print('❌ Failed: ${response.statusCode}');
@@ -269,190 +266,29 @@ class PostAdController extends GetxController {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // LOAD MORE APARTMENTS
-  // ✅ Called when user scrolls to bottom
-  // ═══════════════════════════════════════════════════════════
-
-  Future<void> loadMoreApartments() async {
-    // Don't load if already loading or no more pages
-    if (isLoadingMore.value || !hasMorePages) {
-      return;
-    }
-
-    try {
-      isLoadingMore.value = true;
-      currentPage++; // Move to next page
-
-      print('');
-      print('📥 LOADING MORE (Page $currentPage)...');
-
-      final token = await _tokenService.getAccessToken();
-      if (token == null) return;
-
-      final currentUserId = await _tokenService.getUserId();
-      if (currentUserId == null) return;
-
-      final url = '${BaseUrl.pubBaseUrl}/api/owner/apartments?page=$currentPage';
-
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-
-        // Update pagination info
-        final paginationInfo = _extractPaginationInfo(data);
-        lastPage = paginationInfo['lastPage'] ?? lastPage;
-        hasMorePages = currentPage < lastPage;
-
-        List<dynamic> apartmentsJson = _parsePaginatedResponse(data);
-        
-        print('   Found: ${apartmentsJson.length} apartments');
-
-        final apartments = <ApartmentModel>[];
-
-        for (var json in apartmentsJson) {
-          try {
-            final apartmentId = json['id'];
-            final detailsJson = await _fetchApartmentDetails(apartmentId, token);
-            
-            if (detailsJson != null) {
-              final fixedJson = _fixImageUrls(detailsJson);
-              final apartment = ApartmentModel.fromJson(fixedJson);
-              
-              final apartmentUserId = apartment.userId ?? detailsJson['owner_id'];
-              
-              if (apartmentUserId == currentUserId) {
-                apartments.add(apartment);
-              }
-            }
-          } catch (e) {
-            print('   ❌ Error loading apartment: $e');
-          }
-        }
-
-        myApartments.addAll(apartments);
-        
-        print('   ✅ Loaded ${apartments.length} more apartments');
-        print('   Total: ${myApartments.length}');
-        print('   Has more: $hasMorePages');
-      }
-    } catch (e) {
-      print('❌ Error loading more: $e');
-    } finally {
-      isLoadingMore.value = false;
-    }
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // EXTRACT PAGINATION INFO
-  // ═══════════════════════════════════════════════════════════
-  
-  Map<String, int> _extractPaginationInfo(dynamic data) {
-    if (data is Map && data.containsKey('data') && data['data'] is Map) {
-      final paginatedData = data['data'] as Map<String, dynamic>;
-      
-      return {
-        'currentPage': paginatedData['current_page'] ?? 1,
-        'lastPage': paginatedData['last_page'] ?? 1,
-        'total': paginatedData['total'] ?? 0,
-      };
-    }
-    
-    return {
-      'currentPage': 1,
-      'lastPage': 1,
-      'total': 0,
-    };
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // FETCH APARTMENT DETAILS
-  // ═══════════════════════════════════════════════════════════
-  
-  Future<Map<String, dynamic>?> _fetchApartmentDetails(int id, String token) async {
-    try {
-      final url = '${BaseUrl.pubBaseUrl}/api/apartments/$id';
-      
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        
-        if (data is Map) {
-          if (data.containsKey('data')) {
-            return data['data'] as Map<String, dynamic>;
-          } else if (data.containsKey('apartment')) {
-            return data['apartment'] as Map<String, dynamic>;
-          } else {
-            return data as Map<String, dynamic>;
-          }
-        }
-      }
-      
-      return null;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // PARSE PAGINATED RESPONSE
-  // ═══════════════════════════════════════════════════════════
-  
-  List<dynamic> _parsePaginatedResponse(dynamic responseData) {
-    if (responseData is List) {
-      return responseData;
-    }
-    
-    if (responseData is Map) {
-      if (responseData.containsKey('data')) {
-        final dataValue = responseData['data'];
-        
-        if (dataValue is List) {
-          return dataValue;
-        }
-        
-        if (dataValue is Map) {
-          if (dataValue.containsKey('data') && dataValue['data'] is List) {
-            return dataValue['data'] as List;
-          }
-        }
-      }
-    }
-    
-    return [];
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // FIX IMAGE URLS
+  // FIX IMAGE URLS - ULTIMATE FIX
+  // ✅ Removes quotes
+  // ✅ Removes backslashes  
+  // ✅ Handles null main_image
   // ═══════════════════════════════════════════════════════════
   
   Map<String, dynamic> _fixImageUrls(Map<String, dynamic> json) {
     final baseUrl = BaseUrl.pubBaseUrl;
     
-    String cleanUrl(String url) {
+    // Helper function to clean a single URL
+    String cleanImageUrl(String url) {
       if (url.isEmpty || url.startsWith('http')) {
         return url;
       }
       
+      // ✅ Remove quotes, backslashes, and clean path
       String cleaned = url
-          .replaceAll('"', '')
-          .replaceAll('\\', '/')
-          .replaceAll('//', '/')
+          .replaceAll('"', '')           // Remove quotes
+          .replaceAll('\\', '/')         // Fix backslashes
+          .replaceAll('//', '/')         // Fix double slashes
           .trim();
       
+      // Remove 'storage/' prefix if present
       if (cleaned.startsWith('storage/')) {
         cleaned = cleaned.substring(8);
       }
@@ -460,7 +296,7 @@ class PostAdController extends GetxController {
       return '$baseUrl/storage/$cleaned';
     }
     
-    // Fix images array
+    // Fix images array FIRST
     List<String> fixedImagesList = [];
     
     if (json.containsKey('images')) {
@@ -470,15 +306,15 @@ class PostAdController extends GetxController {
         try {
           final imagesList = jsonDecode(images) as List;
           fixedImagesList = imagesList
-              .map((img) => cleanUrl(img.toString()))
+              .map((img) => cleanImageUrl(img.toString()))
               .where((url) => url.isNotEmpty)
               .toList();
         } catch (e) {
-          // Silent
+          print('         ⚠️  Error parsing images: $e');
         }
       } else if (images is List) {
         fixedImagesList = images
-            .map((img) => cleanUrl(img.toString()))
+            .map((img) => cleanImageUrl(img.toString()))
             .where((url) => url.isNotEmpty)
             .toList();
       }
@@ -491,14 +327,15 @@ class PostAdController extends GetxController {
       final mainImage = json['main_image'].toString();
       
       if (mainImage.isNotEmpty && mainImage != 'null') {
-        mainImageUrl = cleanUrl(mainImage);
+        mainImageUrl = cleanImageUrl(mainImage);
       }
     }
     
-    // Use first image if main is null
+    // ✅ If main_image is null/empty, use first image
     if (mainImageUrl == null || mainImageUrl.isEmpty) {
       if (fixedImagesList.isNotEmpty) {
         mainImageUrl = fixedImagesList[0];
+        print('         🔧 Fixed null main_image → using first image');
       } else {
         mainImageUrl = '';
       }
@@ -506,6 +343,7 @@ class PostAdController extends GetxController {
     
     json['main_image'] = mainImageUrl;
     
+    // Update images in json
     if (fixedImagesList.isNotEmpty) {
       json['images'] = jsonEncode(fixedImagesList);
     }
@@ -520,29 +358,48 @@ class PostAdController extends GetxController {
   Future<void> publishDraft() async {
     print('');
     print('═══════════════════════════════════════════════════════════');
-    print('📤 PUBLISHING');
+    print('📤 PUBLISHING DRAFT');
     print('═══════════════════════════════════════════════════════════');
 
-    if (draft == null || draftImages.isEmpty) {
-      throw Exception('Missing draft or images');
+    if (draft == null) {
+      throw Exception('No draft to publish');
+    }
+
+    if (draft!.title.isEmpty) {
+      throw Exception('Missing title');
+    }
+
+    final description = draft!.description ?? '';
+    if (description.isEmpty) {
+      throw Exception('Missing description');
+    }
+
+    if (draftImages.isEmpty) {
+      throw Exception('Missing images');
     }
 
     try {
       final token = await _tokenService.getAccessToken();
 
-      if (token == null) {
-        _showReLoginMessage('No token');
-        throw Exception('No token');
+      if (token == null || token.isEmpty) {
+        print('❌ NO TOKEN');
+        _showReLoginMessage('No authentication token found');
+        throw Exception('No access token');
       }
+      
+      print('✅ Token: ${token.substring(0, 20)}...');
 
       final url = '${BaseUrl.pubBaseUrl}/api/owner/apartments';
+      print('   Endpoint: $url');
+
       var request = http.MultipartRequest('POST', Uri.parse(url));
 
       request.headers['Accept'] = 'application/json';
       request.headers['Authorization'] = 'Bearer $token';
 
+      // Add fields
       request.fields['title'] = draft!.title;
-      request.fields['description'] = draft!.description ?? '';
+      request.fields['description'] = description;
       request.fields['governorate'] = draft!.governorate;
       request.fields['city'] = draft!.city;
       request.fields['address'] = draft!.address ?? '';
@@ -550,37 +407,98 @@ class PostAdController extends GetxController {
       request.fields['rooms_count'] = draft!.roomsCount.toString();
       request.fields['apartment_size'] = draft!.apartmentSize.toString();
 
-      print('   Fields: ${request.fields.length}');
+      print('');
+      print('📋 Fields:');
+      request.fields.forEach((key, value) {
+        print('   $key: $value');
+      });
 
-      // Add images
+      // Add images (first is main)
+      print('');
+      print('📸 Images:');
+      print('   Total: ${draftImages.length}');
+      print('   ⭐ FIRST = MAIN');
+      
+      int validImages = 0;
+      
       for (var i = 0; i < draftImages.length; i++) {
-        final file = File(draftImages[i]);
+        final imagePath = draftImages[i];
+        final isMainImage = (i == 0);
         
-        if (await file.exists()) {
+        print('');
+        print('   Image ${i + 1}:${isMainImage ? " ⭐ MAIN" : ""}');
+        
+        try {
+          final file = File(imagePath);
+          
+          if (!await file.exists()) {
+            print('      ❌ Not found');
+            continue;
+          }
+          
+          final fileSize = await file.length();
+          print('      Size: ${(fileSize / 1024).toStringAsFixed(2)} KB');
+          
+          if (fileSize == 0) {
+            print('      ❌ Empty');
+            continue;
+          }
+          
           request.files.add(
-            await http.MultipartFile.fromPath('images[]', draftImages[i]),
+            await http.MultipartFile.fromPath('images[]', imagePath),
           );
+          
+          validImages++;
+          print('      ✅ Added');
+          
+        } catch (e) {
+          print('      ❌ Error: $e');
         }
       }
 
-      print('   Images: ${request.files.length} (first is main)');
-      print('   Sending...');
+      print('');
+      print('📦 Summary: $validImages images');
+
+      if (request.files.isEmpty) {
+        throw Exception('No valid images');
+      }
+
+      print('📤 Sending...');
 
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
 
-      print('   Status: ${response.statusCode}');
+      print('');
+      print('📡 Response: ${response.statusCode}');
+
+      if (response.statusCode == 401) {
+        print('❌ 401 UNAUTHENTICATED');
+        _showReLoginMessage('Session expired');
+        throw Exception('Authentication failed');
+      }
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         print('✅ SUCCESS');
         
+        try {
+          final responseData = jsonDecode(response.body);
+          
+          if (responseData.containsKey('data')) {
+            final apt = responseData['data'];
+            print('   Main Image: ${apt['main_image']}');
+            print('   Images: ${apt['images']}');
+          }
+        } catch (e) {
+          print('   Could not parse response');
+        }
+        
+        print('═══════════════════════════════════════════════════════════');
+
         clearDraft();
         Get.back();
         
         await Future.delayed(const Duration(milliseconds: 100));
-        
-        // Refresh from first page
-        await fetchMyApartments(refresh: true);
+        await fetchMyApartments();
         
         Get.snackbar(
           'Success',
@@ -588,10 +506,22 @@ class PostAdController extends GetxController {
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: const Color(0xFF22C55E),
           colorText: Colors.white,
+          duration: const Duration(seconds: 2),
         );
       } else {
         print('❌ FAILED: ${response.statusCode}');
-        throw Exception('Failed');
+        print('   Body: ${response.body}');
+        
+        Get.snackbar(
+          'Error',
+          'Failed (${response.statusCode})',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 3),
+        );
+        
+        throw Exception('Failed to publish');
       }
     } catch (e) {
       print('❌ ERROR: $e');
@@ -600,16 +530,21 @@ class PostAdController extends GetxController {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // DELETE
+  // DELETE APARTMENT
   // ═══════════════════════════════════════════════════════════
 
   Future<bool> deleteApartment(int apartmentId) async {
     try {
       final token = await _tokenService.getAccessToken();
-      if (token == null) return false;
+
+      if (token == null) {
+        return false;
+      }
+
+      final url = '${BaseUrl.pubBaseUrl}/api/owner/apartments/$apartmentId';
 
       final response = await http.delete(
-        Uri.parse('${BaseUrl.pubBaseUrl}/api/owner/apartments/$apartmentId'),
+        Uri.parse(url),
         headers: {
           'Accept': 'application/json',
           'Authorization': 'Bearer $token',
@@ -618,7 +553,15 @@ class PostAdController extends GetxController {
 
       if (response.statusCode == 200 || response.statusCode == 204) {
         myApartments.removeWhere((apt) => apt.id == apartmentId);
-        Get.snackbar('Success', 'Deleted', backgroundColor: Colors.green, colorText: Colors.white);
+        
+        Get.snackbar(
+          'Success',
+          'Apartment deleted',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: const Color(0xFF22C55E),
+          colorText: Colors.white,
+        );
+
         return true;
       }
       
@@ -635,6 +578,7 @@ class PostAdController extends GetxController {
   void clearDraft() {
     draft = null;
     draftImages = [];
+    print('🧹 Draft cleared');
   }
 
   void cancelDraft() {
@@ -643,24 +587,33 @@ class PostAdController extends GetxController {
   
   void _showReLoginMessage(String reason) {
     Get.snackbar(
-      'Re-login Required',
-      reason,
+      '🔐 Re-login Required',
+      '$reason. Please logout and login again.',
       snackPosition: SnackPosition.TOP,
       backgroundColor: Colors.orange,
       colorText: Colors.white,
+      duration: const Duration(seconds: 8),
+      icon: const Icon(Icons.lock_outline, color: Colors.white, size: 32),
+      margin: const EdgeInsets.all(16),
       mainButton: TextButton(
         onPressed: () {
           box.erase();
           Get.offAllNamed('/');
         },
-        child: const Text('LOGOUT', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        child: const Text(
+          'LOGOUT',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     );
   }
 
   @override
   void onClose() {
-    print('📝 Controller closed');
+    print('📝 Post Ad Controller closed');
     super.onClose();
   }
 }

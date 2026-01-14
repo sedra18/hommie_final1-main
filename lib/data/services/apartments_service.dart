@@ -20,31 +20,40 @@ class ApartmentsService {
   // ═══════════════════════════════════════════════════════════
   
   static String getCleanImageUrl(String serverImagePath) {
-    if (serverImagePath.isEmpty) {
-      return "";
-    }
+  if (serverImagePath.isEmpty || serverImagePath == 'null') {
+    return "";
+  }
 
-    // If already a full URL, return as-is
-    if (serverImagePath.startsWith('http://') || 
-        serverImagePath.startsWith('https://')) {
-      return serverImagePath;
-    }
-
-    // Clean the path
-    String cleaned = serverImagePath
-        .replaceAll('"', '')           // Remove quotes
-        .replaceAll('\\', '/')         // Fix backslashes
-        .replaceAll('//', '/')         // Fix double slashes
+  try {
+    // Convert to string and clean
+    String path = serverImagePath.toString()
+        .replaceAll('"', '')
+        .replaceAll('\\', '/')
+        .replaceAll('//', '/')
         .trim();
 
+    // If already a full URL, return as-is
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return path;
+    }
+
     // Remove 'storage/' prefix if present
-    if (cleaned.startsWith('storage/')) {
-      cleaned = cleaned.substring(8);
+    if (path.startsWith('storage/')) {
+      path = path.substring(8);
+    }
+
+    // Ensure proper format
+    if (!path.startsWith('apartments/')) {
+      path = 'apartments/$path';
     }
 
     // Build full URL
-    return '$imageBaseUrl/storage/apartments/$cleaned';
+    return '$imageBaseUrl/storage/$path';
+  } catch (e) {
+    print('❌ Error cleaning image URL: $e');
+    return "";
   }
+}
 
   // ═══════════════════════════════════════════════════════════
   // FETCH APARTMENTS - WITH FULL DETAILS

@@ -216,7 +216,7 @@ class ApartmentCardHome extends StatelessWidget {
     print('📸 Loading image: ${apartment.mainImage}');
 
     return Image.network(
-      apartment.mainImage,
+     '${apartment.mainImage}',
       height: 200,
       width: double.infinity,
       fit: BoxFit.cover,
